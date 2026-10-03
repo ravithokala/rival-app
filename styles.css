@@ -1,0 +1,133 @@
+/* The Rival. Colours are tokens (as the other apps); dark mode follows the phone unless
+   Settings → Appearance sets html[data-theme]. Status always comes with words, never colour alone. */
+:root {
+  color-scheme: light;
+  --text: #1F1D1C; --muted: #66605C; --line: #E4DFDC; --soft: #F1EDEB; --bg: #F7F5F4; --card: #FFFFFF;
+  --accent: #8E1B1B; --on-accent: #FFFFFF; --accent-soft: #F6E3E1;
+  --bad: #B3261E; --bad-bg: #FCE4E1; --ok: #1E6B3A; --ok-bg: #E2F2E6;
+  --ninja: #1B1B1F; --skin: #F2C9A0;
+  --shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --text: #ECE8E6; --muted: #ADA6A1; --line: #34302E; --soft: #24211F; --bg: #161413; --card: #1E1B1A;
+    --accent: #F2A3A3; --on-accent: #3A0E0E; --accent-soft: #3A1E1D;
+    --bad: #F2B8B5; --bad-bg: #3D1B19; --ok: #8FD5A6; --ok-bg: #16301F;
+    --ninja: #0B0B0D; --skin: #E8BD92;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --text: #ECE8E6; --muted: #ADA6A1; --line: #34302E; --soft: #24211F; --bg: #161413; --card: #1E1B1A;
+  --accent: #F2A3A3; --on-accent: #3A0E0E; --accent-soft: #3A1E1D;
+  --bad: #F2B8B5; --bad-bg: #3D1B19; --ok: #8FD5A6; --ok-bg: #16301F;
+  --ninja: #0B0B0D; --skin: #E8BD92;
+  --shadow: none;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--text); background: var(--bg); }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Header and tabs */
+header { position: sticky; top: 0; z-index: 3; background: var(--bg); border-bottom: 1px solid var(--line); padding: env(safe-area-inset-top) 16px 0; }
+.top { display: flex; align-items: center; gap: 10px; min-height: 52px; max-width: 760px; margin: 0 auto; }
+.brand-mark { width: 26px; height: 26px; border-radius: 7px; background: url(icons/icon.svg) center / cover; flex: none; }
+.app-name { font-weight: 700; font-size: 17px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Top right: when this phone's copy last came from the sheet, and ↻ to re-read it now (as the other apps). */
+.refresh { flex: none; display: flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; justify-content: flex-end; background: none; border: 0; padding: 0;
+  color: var(--muted); font-size: 13px; white-space: nowrap; cursor: pointer; }
+.refresh span[aria-hidden] { font-size: 20px; line-height: 1; color: var(--accent); }
+.gear { flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin-right: -10px; font-size: 22px; text-decoration: none; color: var(--muted); }
+.gear[aria-current="true"] { color: var(--accent); }
+.badge { border: 0; border-radius: 12px; padding: 4px 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.badge.offline { background: var(--soft); color: var(--muted); }
+.badge.problem { background: var(--bad-bg); color: var(--bad); }
+.badge.busy { background: var(--accent-soft); color: var(--accent); }
+#signin { display: flex; justify-content: center; padding: 12px 16px 0; }
+#signin:empty { display: none; }
+
+main { max-width: 760px; margin: 0 auto; padding: 12px 16px calc(88px + env(safe-area-inset-bottom)); }
+#tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(5, 1fr);
+  background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+#tabs:empty { display: none; }
+#tabs a { display: flex; align-items: center; justify-content: center; min-height: 54px; min-width: 0; padding: 0 2px; font-size: 13px; color: var(--muted); text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tabs a[aria-current="true"] { color: var(--accent); font-weight: 700; box-shadow: inset 0 3px 0 var(--accent); }
+
+/* Screens */
+.screen-title { font-size: 22px; line-height: 1.25; margin: 6px 0 10px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 12px 0; box-shadow: var(--shadow); }
+.card h2 { font-size: 17px; margin: 0 0 8px; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+.error { color: var(--bad); }
+.version { text-align: center; color: var(--muted); font-size: 13px; margin-top: 20px; }
+.load-time { display: block; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.menu-link { display: flex; justify-content: space-between; align-items: center; min-height: 44px; text-decoration: none; font-weight: 600; }
+.chevron { font-size: 22px; color: var(--muted); }
+.plain-list { margin: 0; padding-left: 20px; color: var(--muted); }
+.plain-list li { margin: 4px 0; }
+.coming h2 { color: var(--muted); }
+
+/* The Rival: a ninja silhouette (the same drawing as the icon, in CSS) */
+.rival-card { display: flex; align-items: center; gap: 14px; }
+.rival-avatar { flex: none; position: relative; width: 52px; height: 52px; border-radius: 50%; background: var(--ninja); overflow: hidden; }
+.rival-avatar::before { content: ""; position: absolute; left: 6px; right: 6px; top: 19px; height: 11px; background: var(--skin); border-radius: 3px; }
+.rival-avatar::after { content: ""; position: absolute; left: 15px; top: 23px; width: 8px; height: 3px; border-radius: 2px; background: var(--ninja);
+  box-shadow: 14px 0 0 var(--ninja); }
+.rival-name { font-weight: 700; }
+.rival-line { margin: 2px 0 0; color: var(--muted); font-style: italic; }
+
+/* System check */
+.check-group { font-size: 14px; color: var(--muted); margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+.checks { list-style: none; margin: 0; padding: 0; }
+.check { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
+.check:first-child { border-top: 0; }
+.check-mark { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+.check.ok .check-mark { background: var(--ok-bg); color: var(--ok); }
+.check.fail .check-mark { background: var(--bad-bg); color: var(--bad); }
+.check-name { font-weight: 600; }
+.check-detail { font-size: 14px; color: var(--muted); overflow-wrap: anywhere; }
+.msg { margin-top: 6px; padding: 8px 10px; border-radius: 8px; font-size: 14px; }
+.msg.error { background: var(--bad-bg); color: var(--bad); }
+.msg.warning { background: var(--soft); color: var(--text); }
+.messages:empty { display: none; }
+
+/* Buttons */
+.button, .actions button { min-height: 44px; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--accent); font-weight: 600; cursor: pointer; }
+.actions { display: flex; gap: 10px; margin-top: 12px; }
+.actions button { flex: 1; }
+.actions.start { justify-content: flex-start; flex-wrap: wrap; }
+.actions.start button { flex: none; }
+button.danger, .actions button.danger { color: var(--bad); border-color: var(--bad); background: var(--card); }
+.danger-text { color: var(--bad) !important; }
+button.link { background: none; border: 0; padding: 6px 0; color: var(--accent); font-weight: 600; cursor: pointer; min-height: 44px; text-align: left; }
+button:disabled { opacity: 0.6; }
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card); }
+.segmented button { border: 0; background: none; padding: 8px 14px; min-height: 44px; cursor: pointer; color: var(--muted); font-weight: 600; }
+.segmented button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+
+/* Sheets (dialogs) */
+.sheet { border: 0; padding: 0; margin: auto 0 0; width: 100%; max-width: 100%; max-height: 92vh; border-radius: 16px 16px 0 0;
+  background: var(--card); color: var(--text); box-shadow: 0 -8px 30px rgba(0,0,0,0.25); }
+@media (min-width: 600px) { .sheet { margin: auto; width: min(560px, 94vw); border-radius: 14px; } }
+.sheet::backdrop { background: rgba(0,0,0,0.4); }
+.sheet-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 14px 16px 10px; background: var(--card); border-bottom: 1px solid var(--line); }
+.sheet-head h2 { margin: 0; font-size: 17px; }
+
+/* Messages at the bottom of the screen */
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 10; width: min(520px, calc(100% - 24px));
+  background: var(--text); color: var(--bg); border-radius: 12px; padding: 12px 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); font-size: 15px; }
+.toast-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#toast .undo { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; min-height: 44px; white-space: nowrap; }
+#toast .warn { margin-top: 6px; font-size: 14px; opacity: 0.9; }
+
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
