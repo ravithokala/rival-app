@@ -23,7 +23,6 @@ export function settings(main, actions) {
 
   main.replaceChildren(
     el('h1', { class: 'screen-title' }, 'Settings'),
-    installSection(),
     el('section', { class: 'card' },
       el('h2', {}, 'Data'),
       el('p', {}, status.online ? 'Your Google Sheet is the main copy; this phone keeps a copy for quick opening.' : 'Offline: you can view everything; saving needs a connection.'),
@@ -51,14 +50,16 @@ export function settings(main, actions) {
         el('li', {}, 'Rival name, reminder times and phase unlocks (Milestone 2)'),
         el('li', {}, 'Export all data as JSON (Milestone 2)'),
         el('li', {}, 'Download the reminders calendar file (Milestone 5)'))),
+    // At the bottom, out of the way: needed once per phone (RT, 2026-10-04).
+    installSection(),
     // Where a slow open spends its time (as the other apps): the last refresh from the sheet.
     el('p', { class: 'version' }, `Version ${VERSION}`, status.timing ? el('span', { class: 'load-time' }, loadTimeText(status.timing)) : ''));
 }
 
 /**
  * Install this app (ADR-016): Android Chrome's ⋮ menu refuses a second app from ravithokala.github.io,
- * so the app offers its own button (app-kit's install.js). Shown first while there is something to
- * do; nothing is drawn once the app runs from its icon.
+ * so the app offers its own button (app-kit's install.js). At the bottom of Settings; nothing is
+ * drawn once the app runs from its icon.
  */
 function installSection() {
   const state = installState();
