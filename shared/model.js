@@ -33,6 +33,16 @@ const Model = (() => {
   const DATE_FIELDS = Object.freeze(['item_id', 'item', 'date', 'confirmed', 'source', 'last_verified', 'version', 'updated_at']);
   /** An accepted weekly plan (4b): one row per task and day; plan_id is '<date>|<task_id>'. */
   const PLAN_FIELDS = Object.freeze(['plan_id', 'week_start', 'date', 'task_id', 'deleted', 'version', 'updated_at']);
+  /** Reading (5a; ADR-023): books, chapter check-ins (two questions and a one-line summary) and the question bank. */
+  const BOOK_FIELDS = Object.freeze(['book_id', 'title', 'author', 'status', 'started', 'finished', 'themes', 'favourite', 'disagreed', 'rating',
+    'deleted', 'version', 'updated_at']);
+  const CHAPTER_FIELDS = Object.freeze(['chapter_id', 'book_id', 'chapter', 'date', 'question_ids', 'question_1', 'answer_1', 'question_2', 'answer_2',
+    'summary', 'log_id', 'deleted', 'version', 'updated_at']);
+  const QUESTION_FIELDS = Object.freeze(['question_id', 'text', 'paused', 'version', 'updated_at']);
+  /** Weekly comfort challenges (5a): the bank, and the weeks a swap or Done fixed. */
+  const CHALLENGE_FIELDS = Object.freeze(['challenge_id', 'category', 'text', 'points', 'paused', 'version', 'updated_at']);
+  const CHALLENGE_WEEK_FIELDS = Object.freeze(['week_start', 'challenge_id', 'swapped', 'done_on', 'version', 'updated_at']);
+  const BOOK_STATUSES = Object.freeze(['reading', 'finished', 'stopped']);
   const TASK_STATUSES = Object.freeze(['todo', 'in_progress', 'blocked', 'done', 'retired']);
   const TASK_KINDS = Object.freeze(['task', 'outreach']);
   /** A task or step id: 0A, 1, 0A.1, 3.4 … */
@@ -54,10 +64,15 @@ const Model = (() => {
   const MAX_BREAK_DAYS = 90;
   const MAX_NOTE = 500;
   const MAX_MINUTES = 600;
+  /** Reading: a title or author, an answer or reflection, a one-line summary. */
+  const MAX_TITLE = 200;
+  const MAX_ANSWER = 1000;
+  const MAX_SUMMARY = 200;
 
   return { TRACK_FIELDS, SCHEDULE_FIELDS, LOG_FIELDS, POINT_FIELDS, BREAK_FIELDS, WEEK_FIELDS, LINE_FIELDS, REWARD_FIELDS, MILESTONE_FIELDS,
-    STEP_FIELDS, TASK_FIELDS, DATE_FIELDS, PLAN_FIELDS, TASK_STATUSES, TASK_KINDS, BIZ_ID, MODES, VARIANTS, VOICES, DAYS, POINT_TYPES, SETTING_KEYS,
-    ID, MAX_NOTE, MAX_MINUTES, MAX_BREAK_DAYS };
+    STEP_FIELDS, TASK_FIELDS, DATE_FIELDS, PLAN_FIELDS, BOOK_FIELDS, CHAPTER_FIELDS, QUESTION_FIELDS, CHALLENGE_FIELDS, CHALLENGE_WEEK_FIELDS,
+    TASK_STATUSES, TASK_KINDS, BOOK_STATUSES, BIZ_ID, MODES, VARIANTS, VOICES, DAYS, POINT_TYPES, SETTING_KEYS,
+    ID, MAX_NOTE, MAX_MINUTES, MAX_BREAK_DAYS, MAX_TITLE, MAX_ANSWER, MAX_SUMMARY };
 })();
 
 export { Model };

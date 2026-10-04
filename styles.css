@@ -224,6 +224,35 @@ a.button { display: inline-flex; align-items: center; justify-content: center; t
 .keep { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--text); }
 .keep input { width: 20px; height: 20px; }
 
+/* Reading and the comfort challenge (5a) */
+.book .habit-head h2 { overflow-wrap: anywhere; min-width: 0; }
+.book .habit-head > span { flex: none; white-space: nowrap; }
+.book-foot { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 4px; }
+.book-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.book-row:first-child { border-top: 0; }
+.book-text { display: flex; flex-direction: column; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.book-done { border-top: 1px solid var(--line); }
+li:first-child > .book-done { border-top: 0; }
+.book-done > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 0; cursor: pointer; list-style: none; }
+.book-done > summary::-webkit-details-marker { display: none; }
+.stars { flex: none; color: #C8961E; letter-spacing: 1px; }
+.reflection { margin: 4px 0 8px; }
+.chapter-map { margin-top: 10px; }
+.chapter-map > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--accent); font-weight: 600; }
+.map { list-style: none; margin: 0; padding: 0; }
+.map-row { padding: 8px 0; border-top: 1px solid var(--line); }
+.map-head { display: flex; align-items: center; gap: 8px; }
+.map-no { flex: none; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.map-summary { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.map-head .link { flex: none; padding: 0 0 0 8px; }
+.qa { margin: 4px 0 0; font-size: 14px; }
+.qa dt { color: var(--muted); margin-top: 4px; }
+.qa dd { margin: 0; overflow-wrap: anywhere; }
+.question { color: var(--text); font-weight: 600; font-size: 15px; }
+.challenge { border-left: 4px solid var(--accent); }
+.challenge.done { border-left-color: var(--ok); }
+.challenge-text { margin: 4px 0; font-size: 17px; font-weight: 600; }
+
 /* System check */
 .check-group { font-size: 14px; color: var(--muted); margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.04em; }
 .checks { list-style: none; margin: 0; padding: 0; }

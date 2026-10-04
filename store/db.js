@@ -7,14 +7,15 @@
  * The database name is this app's own: the other apps on this origin use other names.
  * Version 2 added the habit tabs (Milestone 2); version 3 breaks (ADR-018); version 4 weeks and the Rival's lines (ADR-019);
  * version 5 rewards and milestones (3b); version 6 the business tabs (Milestone 4);
- * version 7 weekly plans (4b).
+ * version 7 weekly plans (4b); version 8 books, check-ins, questions and comfort challenges (5a).
  */
 
 const NAME = 'the-rival';
-const VERSION = 7;
+const VERSION = 8;
 /** @type {Record<string, string>} store → key path */
 const KEYS = { settings: 'key', rules: 'key', tracks: 'track_id', schedule: 'schedule_id', logs: 'log_id', points: 'point_id', breaks: 'break_id', weeks: 'week_start', lines: 'line_id', rewards: 'reward_id', milestones: 'milestone_id',
-  steps: 'step_id', tasks: 'task_id', dates: 'item_id', facts: 'key', plans: 'plan_id', meta: 'key' };
+  steps: 'step_id', tasks: 'task_id', dates: 'item_id', facts: 'key', plans: 'plan_id',
+  books: 'book_id', chapters: 'chapter_id', questions: 'question_id', challenges: 'challenge_id', challenge_weeks: 'week_start', meta: 'key' };
 const STORES = Object.keys(KEYS);
 /** The stores holding the server's rows (everything but meta). */
 const ROWS = STORES.filter((s) => s !== 'meta');

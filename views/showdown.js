@@ -7,6 +7,7 @@ import { Dates } from '../shared/dates.js';
 import { Model } from '../shared/model.js';
 import { weekScore, lineFor } from './rival.js';
 import { rivalName } from './placeholders.js';
+import { weekChallenge } from './progress.js';
 
 /**
  * The Sunday showdown (viewable any day, ADR-019): this week's grid (each item, each day), both scores
@@ -28,6 +29,14 @@ function cell(item, d, day) {
   if (brk && !brk.keep_tracks.includes(item.track_id)) return ['B', 'break'];
   if (!Schedule.dueOn(item, d) || !Schedule.activeItems(data, d).some((i) => i.schedule_id === item.schedule_id)) return ['', ''];
   return d < day ? ['–', 'missed'] : ['·', 'to do'];
+}
+
+/** This week's comfort challenge, in one line (5a). @param {string} day */
+function challengeLine(day) {
+  const state = weekChallenge(day);
+  if (!state || !state.challenge) return '';
+  return el('p', { class: 'small' }, el('a', { href: '#/progress' }, 'Comfort challenge'),
+    state.done ? `: done, +${state.points}` : `: not done yet · ${state.challenge.text}`);
 }
 
 /** @param {HTMLElement} main */
@@ -77,7 +86,8 @@ export function showdownScreen(main) {
       el('h2', {}, `Week ${week.number} · ${Dates.shortDay(week.start)} – ${Dates.shortDay(week.end)}`),
       el('p', { class: 'final' }, `You ${s.me} · ${name} ${s.rival}`, el('span', { class: 'muted small' }, ' so far')),
       el('p', { class: 'muted small' }, `${name} at ${s.pct}%${s.setback ? ' (setback week)' : ''} of a perfect week (${s.perfect} points). Final when the week closes on Sunday night.`),
-      breakDays ? el('p', { class: 'muted small' }, `Break days this week: ${breakDays}`) : ''),
+      breakDays ? el('p', { class: 'muted small' }, `Break days this week: ${breakDays}`) : '',
+      challengeLine(day)),
     el('section', { class: 'card grid-card' }, el('h2', {}, 'This week'), grid,
       el('p', { class: 'muted small legend' }, '✓ done · m minimum · × skipped · – missed · B break · · to do')),
     lastResult,

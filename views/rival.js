@@ -5,6 +5,7 @@ import { data } from '../store/store.js';
 import { Rival } from '../shared/rival.js';
 import { Dates } from '../shared/dates.js';
 import { Model } from '../shared/model.js';
+import { Schedule } from '../shared/schedule.js';
 import { rivalName } from './placeholders.js';
 
 /**
@@ -49,6 +50,9 @@ function situations(plan, s, day) {
   const urgent = open.find((w) => w.urgent);
   const eve = new Date().getHours() >= 18 ? open.find((w) => w.item.mode === 'weekly' && !w.waived && w.item.days.includes(tomorrow)) : undefined;
   const stretch = dow >= 4 ? open.find((w) => w.item.mode === 'stretch') : undefined;
+  // After 20:00 with Reading due and not done yet (5a).
+  const reading = new Date().getHours() >= 20 ? Schedule.activeItems(data, day).find((i) => i.track_id === 'reading' && Schedule.dueOn(i, day)
+    && !data.logs.some((l) => l.schedule_id === i.schedule_id && l.date === day && Schedule.isDone(l))) : undefined;
   // A milestone reached in the last two days: the Rival admits defeat (3b).
   const fresh = data.milestones.filter((m) => m.achieved_on && Dates.daysBetween(m.achieved_on, day) <= 1)
     .sort((a, b) => ((a.achieved_on ?? '') < (b.achieved_on ?? '') ? 1 : -1))[0];
@@ -60,6 +64,7 @@ function situations(plan, s, day) {
     dow === 6 ? 'showdown' : '',
     urgent ? 'week-ending' : '',
     eve ? 'eve' : '',
+    reading ? 'reading' : '',
     stretch ? 'stretch' : '',
     s.me < s.rival ? 'behind' : '',
     s.me > s.rival ? 'ahead' : '',

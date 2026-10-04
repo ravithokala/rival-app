@@ -34,6 +34,11 @@ export const data = {
   /** @type {BizDate[]} */ dates: [],
   /** @type {Setting[]} */ facts: [],
   /** @type {PlanRow[]} */ plans: [],
+  /** @type {Book[]} */ books: [],
+  /** @type {Chapter[]} */ chapters: [],
+  /** @type {Question[]} */ questions: [],
+  /** @type {Challenge[]} */ challenges: [],
+  /** @type {ChallengeWeek[]} */ challenge_weeks: [],
 };
 
 export const status = {
@@ -79,6 +84,11 @@ function take(rows) {
   data.dates = rows.dates ?? [];
   data.facts = rows.facts ?? [];
   data.plans = rows.plans ?? [];
+  data.books = rows.books ?? [];
+  data.chapters = rows.chapters ?? [];
+  data.questions = rows.questions ?? [];
+  data.challenges = rows.challenges ?? [];
+  data.challenge_weeks = rows.challenge_weeks ?? [];
 }
 
 /** Today on this phone, after the day cutoff (ADR-004): an entry at 01:30 counts for the evening before. */
@@ -128,7 +138,8 @@ async function run() {
     const rows = { settings: pulled.settings, rules: pulled.rules, tracks: pulled.tracks, schedule: pulled.schedule, logs: pulled.logs, points: pulled.points,
       breaks: pulled.breaks ?? [], weeks: pulled.weeks ?? [], lines: pulled.lines ?? [], rewards: pulled.rewards ?? [], milestones: pulled.milestones ?? [],
       steps: pulled.steps ?? [], tasks: pulled.tasks ?? [], dates: pulled.dates ?? [], facts: pulled.facts ?? [],
-      plans: pulled.plans ?? [] };
+      plans: pulled.plans ?? [], books: pulled.books ?? [], chapters: pulled.chapters ?? [], questions: pulled.questions ?? [],
+      challenges: pulled.challenges ?? [], challenge_weeks: pulled.challenge_weeks ?? [] };
     take(rows);
     data.balance = pulled.balance ?? 0;
     data.streaks = pulled.streaks ?? [];
@@ -345,6 +356,85 @@ export async function verifyDate(itemId) {
     return { ok: true };
   } catch (e) {
     return refuse(isOffline(e) ? "You're offline: connect to mark it verified." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
+  }
+}
+
+/**
+ * Adds a book, edits it, finishes it with the reflection, puts it down or picks it up again (5a). Online only.
+ * @param {{ action: 'add', title: string, author?: string|null }
+ *   | { action: 'edit', book_id: string, title: string, author?: string|null }
+ *   | { action: 'finish', book_id: string, themes?: string|null, favourite?: string|null, disagreed?: string|null, rating: number }
+ *   | { action: 'stop'|'resume', book_id: string }} change
+ * @returns {Promise<Saved & { bookId?: string }>}
+ */
+export async function saveBook(change) {
+  if (!navigator.onLine) return refuse("You're offline: connect to save the book.");
+  const current = 'book_id' in change ? data.books.find((b) => b.book_id === change.book_id) : null;
+  try {
+    const r = await call('book.save', current ? { ...change, base_version: current.version ?? 0 } : change);
+    if (!r.ok && r.errors[0]?.code !== 'CONFLICT') return refuse(r.errors.map((e) => e.message).join('; '));
+    const book = /** @type {Book} */ (r.data.book);
+    data.books = [...data.books.filter((b) => b.book_id !== book.book_id), book];
+    await db.putRows({ books: [book] });
+    changed();
+    return r.ok ? { ok: true, bookId: book.book_id } : refuse(r.errors.map((e) => e.message).join('; '));
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: connect to save the book." : `${e instanceof Error ? e.message : String(e)}. Nothing was lost: try again in a moment.`);
+  }
+}
+
+/**
+ * Saves a chapter check-in (it also logs today's Reading if not done yet), or changes one (5a). Online only.
+ * @param {{ action: 'add', book_id: string, chapter: number, question_ids: string[], answers: string[], summary: string }
+ *   | { action: 'edit', chapter_id: string, chapter: number, answers: string[], summary: string }} change
+ * @returns {Promise<Saved & { logged?: boolean }>}
+ */
+export async function saveChapter(change) {
+  if (!navigator.onLine) return refuse("You're offline: your answers are still here; save when you're back online.");
+  const current = change.action === 'edit' ? data.chapters.find((c) => c.chapter_id === change.chapter_id) : null;
+  try {
+    const r = await call('chapter.save', current ? { ...change, base_version: current.version ?? 0 } : change);
+    if (!r.ok) {
+      if (r.errors[0]?.code === 'CONFLICT') refresh().catch(() => { /* shown in the header */ });
+      return refuse(r.errors.map((e) => e.message).join('; '));
+    }
+    const chapter = /** @type {Chapter} */ (r.data.chapter);
+    data.chapters = [...data.chapters.filter((c) => c.chapter_id !== chapter.chapter_id), chapter];
+    await db.putRows({ chapters: [chapter] });
+    if (r.data.log) await keep(r.data.log, r.data.point);
+    data.balance = r.data.balance;
+    await db.setMeta({ balance: data.balance });
+    changed();
+    return { ok: true, logged: Boolean(r.data.log) };
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: your answers are still here; save when you're back online." : `${e instanceof Error ? e.message : String(e)}. Nothing was lost: try again in a moment.`);
+  }
+}
+
+/**
+ * This week's comfort challenge: Done, Undo or Swap (5a). Online only.
+ * @param {'done'|'undo'|'swap'} action @param {string} challengeId  the challenge on screen
+ * @returns {Promise<Saved>}
+ */
+export async function updateChallenge(action, challengeId) {
+  if (!navigator.onLine) return refuse("You're offline: connect to update the challenge.");
+  try {
+    const r = await call('challenge.update', { action, challenge_id: challengeId });
+    if (!r.ok) {
+      if (r.errors[0]?.code === 'CONFLICT') refresh().catch(() => { /* shown in the header */ });
+      return refuse(r.errors.map((e) => e.message).join('; '));
+    }
+    const week = /** @type {ChallengeWeek|null} */ (r.data.week);
+    const point = /** @type {PointEntry|null} */ (r.data.point);
+    if (week) data.challenge_weeks = [...data.challenge_weeks.filter((w) => w.week_start !== week.week_start), week];
+    if (point) data.points = [...data.points.filter((p) => p.point_id !== point.point_id), point];
+    data.balance = r.data.balance;
+    await db.putRows({ challenge_weeks: week ? [week] : [], points: point ? [point] : [] });
+    await db.setMeta({ balance: data.balance });
+    changed();
+    return { ok: true };
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: connect to update the challenge." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
   }
 }
 

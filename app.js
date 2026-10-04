@@ -17,6 +17,7 @@ import { showdownScreen } from './views/showdown.js';
 import { progressScreen } from './views/progress.js';
 import { businessScreen } from './views/business.js';
 import { reviewScreen } from './views/review.js';
+import { readingScreen } from './views/reading.js';
 
 /**
  * The Rival (docs/PROJECT_BRIEF.md). Starts the app, signs in, loads this phone's copy, keeps it in
@@ -46,6 +47,7 @@ function show() {
   else if (screen === 'progress') progressScreen(main);
   else if (screen === 'business') businessScreen(main);
   else if (screen === 'review') reviewScreen(main);
+  else if (screen === 'reading') readingScreen(main);
   else placeholder(main, /** @type {import('./views/placeholders.js').Screen} */ (SCREENS.find((s) => s.id === screen)));
   // The weekly review belongs to the Business tab.
   const tab = screen === 'review' ? 'business' : screen;
