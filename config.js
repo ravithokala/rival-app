@@ -16,5 +16,5 @@ export const CONFIG = Object.freeze({
    * the saved copy stays on screen. `slow` take long by nature. Everything else is a save: an id,
    * 12 seconds, then one automatic retry with the same id.
    */
-  waits: Object.freeze({ reads: Object.freeze(['sync.pull', 'system.check']), slow: Object.freeze([]) }),
+  waits: Object.freeze({ reads: Object.freeze(['sync.pull', 'system.check', 'export.all']), slow: Object.freeze([]) }),
 });

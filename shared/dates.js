@@ -96,7 +96,29 @@ const Dates = (() => {
     return thisYear >= today ? thisYear : on(year + 1);
   }
 
-  return { ZONE, isValid, addDays, daysBetween, daysInMonth, addMonths, addYears, londonDate, formatUk, parseUk, nextYearly };
+  /** 0 for Monday … 6 for Sunday (weeks run Monday to Sunday, ADR-004). @param {string} iso */
+  const weekdayIndex = (iso) => (new Date(toUtc(iso)).getUTCDay() + 6) % 7;
+
+  /** The Monday of the week holding `iso`. @param {string} iso */
+  const weekStart = (iso) => addDays(iso, -weekdayIndex(iso));
+
+  /**
+   * The day an entry made now belongs to: the date in the UK `cutoffHours` hours ago, so a session
+   * logged at 01:30 counts for the evening before (ADR-004).
+   * @param {Date} now @param {number} cutoffHours
+   */
+  const dayAt = (now, cutoffHours) => londonDate(new Date(now.getTime() - cutoffHours * 60 * 60 * 1000));
+
+  /** 'Mon 5 Oct'. @param {string} iso */
+  function shortDay(iso) {
+    const d = new Date(toUtc(iso));
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${names[weekdayIndex(iso)]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
+  }
+
+  return { ZONE, isValid, addDays, daysBetween, daysInMonth, addMonths, addYears, londonDate, formatUk, parseUk, nextYearly,
+    weekdayIndex, weekStart, dayAt, shortDay };
 })();
 
 export { Dates };

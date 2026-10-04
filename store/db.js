@@ -2,16 +2,19 @@
 
 /**
  * This phone's copy of the data, in IndexedDB (ADR-003). The sheet is the master copy; this one
- * lets the app open at once and be viewed offline. Stores:
- *   settings  rows as the server sends them (key, value, updated_at)
- *   meta      { key, value }: last refresh time, who is signed in, the sheet link
+ * lets the app open at once and be viewed offline. One store per tab the phone keeps, keyed by the
+ * tab's id column, plus meta ({ key, value }: last refresh time, who is signed in, the sheet link).
  * The database name is this app's own: the other apps on this origin use other names.
- * Milestone 2 adds a store per habit tab (a version bump).
+ * Version 2 added the habit tabs (Milestone 2).
  */
 
 const NAME = 'the-rival';
-const VERSION = 1;
-const STORES = ['settings', 'meta'];
+const VERSION = 2;
+/** @type {Record<string, string>} store → key path */
+const KEYS = { settings: 'key', rules: 'key', tracks: 'track_id', schedule: 'schedule_id', logs: 'log_id', points: 'point_id', meta: 'key' };
+const STORES = Object.keys(KEYS);
+/** The stores holding the server's rows (everything but meta). */
+const ROWS = STORES.filter((s) => s !== 'meta');
 
 /** @type {Promise<IDBDatabase>|null} */
 let opening = null;
@@ -23,7 +26,7 @@ function open() {
     const request = indexedDB.open(NAME, VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      for (const name of STORES) if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath: 'key' });
+      for (const name of STORES) if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath: KEYS[name] });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => { opening = null; reject(request.error); };
@@ -62,25 +65,37 @@ const done = (request) => new Promise((resolve, reject) => {
 
 /**
  * Everything saved on this phone.
- * @returns {Promise<{ settings: Setting[], meta: Record<string, any> }>}
+ * @returns {Promise<{ rows: Record<string, any[]>, meta: Record<string, any> }>}
  */
 export async function loadAll() {
   const db = await open();
   const tx = db.transaction(STORES, 'readonly');
-  const [settings, meta] = await Promise.all(STORES.map((s) => done(tx.objectStore(s).getAll())));
-  return { settings, meta: Object.fromEntries(meta.map((/** @type {any} */ m) => [m.key, m.value])) };
+  const all = await Promise.all(STORES.map((s) => done(tx.objectStore(s).getAll())));
+  const rows = Object.fromEntries(ROWS.map((s) => [s, all[STORES.indexOf(s)]]));
+  return { rows, meta: Object.fromEntries(all[STORES.indexOf('meta')].map((/** @type {any} */ m) => [m.key, m.value])) };
 }
 
 /**
  * Replaces the whole copy with what the server sent, in one transaction.
- * @param {{ settings: Setting[] }} rows
+ * @param {Record<string, any[]>} rows  store → rows
  */
 export function replaceRows(rows) {
-  return transact(['settings'], 'readwrite', (tx) => {
-    const os = tx.objectStore('settings');
-    os.clear();
-    rows.settings.forEach((r) => os.put(r));
+  return transact(ROWS, 'readwrite', (tx) => {
+    for (const name of ROWS) {
+      const os = tx.objectStore(name);
+      os.clear();
+      (rows[name] ?? []).forEach((r) => os.put(r));
+    }
   });
+}
+
+/**
+ * Saves rows a save returned (a log and its points row).
+ * @param {Record<string, any[]>} rows  store → rows
+ */
+export function putRows(rows) {
+  const names = Object.keys(rows).filter((n) => ROWS.includes(n));
+  return transact(names, 'readwrite', (tx) => names.forEach((n) => rows[n].forEach((r) => tx.objectStore(n).put(r))));
 }
 
 /** @param {Record<string, unknown>} values */

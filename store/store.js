@@ -3,18 +3,24 @@
 import * as db from './db.js';
 import { call, Unreachable, lastTiming } from '../api.js';
 import { copyTooOld } from '../freshness.js';
+import { Dates } from '../shared/dates.js';
+import { Points } from '../shared/points.js';
 
 /**
- * The app's data (ADR-003, as the other apps): the sheet is the master copy; this phone keeps a
- * copy in IndexedDB so the app opens at once and can be viewed offline. Saving will happen only
- * online, straight to the server (Milestone 2 adds the first saves). The copy refreshes on
- * opening, on returning to the app, when the connection returns, and every five minutes (to pick
- * up edits made in the Sheet).
+ * The app's data (ADR-003, as the other apps): the sheet is the master copy; this phone keeps a copy in
+ * IndexedDB so the app opens at once and can be viewed offline. Saving happens only online, straight to
+ * the server: the rows it returns replace this phone's copies. Offline, saving says so and keeps nothing
+ * (an item can be logged later in the week: ADR-004). The copy refreshes on opening, on returning to the
+ * app, when the connection returns, and every five minutes (to pick up edits made in the Sheet).
  */
 
 export const data = {
-  /** @type {Record<string, string|null>} key → value */
-  settings: /** @type {Record<string, string|null>} */ ({}),
+  /** @type {Record<string, string|null>} */ settings: {},
+  /** @type {Record<string, string|null>} */ rules: {},
+  /** @type {Track[]} */ tracks: [],
+  /** @type {ScheduleItem[]} */ schedule: [],
+  /** @type {LogEntry[]} */ logs: [],
+  /** @type {PointEntry[]} */ points: [],
 };
 
 export const status = {
@@ -40,7 +46,20 @@ export const onChange = (fn) => { listeners.add(fn); };
 const changed = () => listeners.forEach((fn) => fn());
 
 /** @param {Setting[]} rows */
-const settingsFrom = (rows) => Object.fromEntries(rows.map((s) => [s.key, s.value]));
+const keyed = (rows) => Object.fromEntries((rows ?? []).map((s) => [s.key, s.value]));
+
+/** @param {Record<string, any[]>} rows */
+function take(rows) {
+  data.settings = keyed(rows.settings);
+  data.rules = keyed(rows.rules);
+  data.tracks = rows.tracks ?? [];
+  data.schedule = rows.schedule ?? [];
+  data.logs = rows.logs ?? [];
+  data.points = rows.points ?? [];
+}
+
+/** Today on this phone, after the day cutoff (ADR-004): an entry at 01:30 counts for the evening before. */
+export const today = () => Dates.dayAt(new Date(), Points.num(data.rules.day_cutoff_hour ?? '3'));
 
 /** Loads this phone's copy. @returns {Promise<boolean>} whether there was one */
 export async function load() {
@@ -50,7 +69,7 @@ export async function load() {
     await db.clearAll();
     saved = await db.loadAll();
   }
-  data.settings = settingsFrom(saved.settings);
+  take(saved.rows);
   status.since = saved.meta.since ?? null;
   status.user = saved.meta.user ?? '';
   status.sheetUrl = saved.meta.sheetUrl ?? '';
@@ -81,8 +100,9 @@ async function run() {
     const r = await call('sync.pull', { since: status.since });
     if (!r.ok) throw new Error(r.errors.map((e) => e.message).join('; '));
     const pulled = /** @type {Pulled} */ (r.data);
-    data.settings = settingsFrom(pulled.settings);
-    await db.replaceRows(pulled);
+    const rows = { settings: pulled.settings, rules: pulled.rules, tracks: pulled.tracks, schedule: pulled.schedule, logs: pulled.logs, points: pulled.points };
+    take(rows);
+    await db.replaceRows(rows);
     Object.assign(status, { since: pulled.server_time, user: pulled.user, sheetUrl: pulled.sheet_url, lastSynced: Date.now(), error: null, online: true, timing: { ...lastTiming } });
     await db.setMeta({ since: status.since, user: status.user, sheetUrl: status.sheetUrl, lastSynced: status.lastSynced });
   } catch (e) {
@@ -95,10 +115,89 @@ async function run() {
   }
 }
 
+/** @typedef {{ ok: true } | { ok: false, message: string }} Saved */
+
+/** @param {string} message @returns {Saved} */
+const refuse = (message) => ({ ok: false, message });
+
+/**
+ * Keeps the rows a log save returned: the log, and its points row (or none: a skip, an undo).
+ * @param {LogEntry|null} log @param {PointEntry|null} point
+ */
+async function keep(log, point) {
+  if (!log) return;
+  data.logs = [...data.logs.filter((l) => l.log_id !== log.log_id), log];
+  // The log's earlier points row goes (undone, or now worth nothing) unless the server sent its new version.
+  data.points = data.points.map((p) => (p.log_id === log.log_id && !p.deleted && p.point_id !== point?.point_id ? { ...p, deleted: true } : p))
+    .filter((p) => p.point_id !== point?.point_id);
+  if (point) data.points.push(point);
+  await db.putRows({ logs: [log], points: data.points.filter((p) => p.log_id === log.log_id) });
+  changed();
+}
+
+/**
+ * Logs an item for a day, changes that log, or undoes it (ADR-004). Online only: nothing is kept on the
+ * phone unless the server accepted it.
+ * @param {{ schedule_id: string, date: string, variant?: 'full'|'minimum'|'skipped', minutes?: number|null, note?: string|null, undo?: boolean }} change
+ * @returns {Promise<Saved>}
+ */
+export async function saveLog(change) {
+  if (!navigator.onLine) return refuse("You're offline: log it later this week. It will wait under \"Did you do these?\".");
+  const current = data.logs.find((l) => !l.deleted && l.schedule_id === change.schedule_id && l.date === change.date);
+  /** @type {import('../api.js').ApiResponse} */
+  let r;
+  try {
+    // A save (app-kit's api.js): a short wait, then one automatic retry with the same id, applied once.
+    r = await call('log.save', { ...change, base_version: current ? current.version : 0 });
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: log it later this week." : `${e instanceof Error ? e.message : String(e)}. Nothing was lost: try again in a moment.`);
+  }
+  if (!r.ok) {
+    // Changed elsewhere (another tap, or the Sheet): show what is saved now.
+    if (r.errors[0]?.code === 'CONFLICT' && r.data) {
+      if (r.data.log) await keep(r.data.log, r.data.point);
+      else refresh().catch(() => { /* shown in the header */ });
+    }
+    return refuse(r.errors.map((e) => e.message).join('; '));
+  }
+  const saved = /** @type {LogSaved} */ (r.data);
+  await keep(saved.log, saved.point);
+  return { ok: true };
+}
+
+/**
+ * Changes a setting the app may change (the Rival's name, the start date, early unlocks). Online only.
+ * @param {string} key @param {string} value
+ * @returns {Promise<Saved>}
+ */
+export async function saveSetting(key, value) {
+  if (!navigator.onLine) return refuse("You're offline: connect to change settings.");
+  try {
+    const r = await call('settings.save', { key, value });
+    if (!r.ok) return refuse(r.errors.map((e) => e.message).join('; '));
+    data.settings = keyed(r.data.settings);
+    await db.putRows({ settings: r.data.settings });
+    changed();
+    return { ok: true };
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: connect to change settings." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
+  }
+}
+
+/** Every row of every tab, from the server (Settings → Export). @returns {Promise<{ ok: true, data: any } | { ok: false, message: string }>} */
+export async function exportAll() {
+  try {
+    const r = await call('export.all', {});
+    return r.ok ? { ok: true, data: r.data } : { ok: false, message: r.errors.map((e) => e.message).join('; ') };
+  } catch (e) {
+    return { ok: false, message: isOffline(e) ? "You're offline: export needs a connection." : `${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
 /** Forgets everything on this phone (signing out). */
 export async function forget() {
   await db.clearAll();
-  data.settings = {};
+  take({});
   Object.assign(status, { user: '', sheetUrl: '', since: null, lastSynced: null, error: null });
   changed();
 }
