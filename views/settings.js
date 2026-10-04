@@ -7,6 +7,7 @@ import { toast } from './sheet.js';
 import { applyTheme, savedTheme } from '../theme.js';
 import { systemSection } from './system.js';
 import { loadTimeText } from '../freshness.js';
+import { installState, install, installHint } from '../install.js';
 
 /**
  * Settings, behind the gear: account, the Sheet, data status, appearance, system check. Reminder
@@ -22,6 +23,7 @@ export function settings(main, actions) {
 
   main.replaceChildren(
     el('h1', { class: 'screen-title' }, 'Settings'),
+    installSection(),
     el('section', { class: 'card' },
       el('h2', {}, 'Data'),
       el('p', {}, status.online ? 'Your Google Sheet is the main copy; this phone keeps a copy for quick opening.' : 'Offline: you can view everything; saving needs a connection.'),
@@ -51,4 +53,23 @@ export function settings(main, actions) {
         el('li', {}, 'Download the reminders calendar file (Milestone 5)'))),
     // Where a slow open spends its time (as the other apps): the last refresh from the sheet.
     el('p', { class: 'version' }, `Version ${VERSION}`, status.timing ? el('span', { class: 'load-time' }, loadTimeText(status.timing)) : ''));
+}
+
+/**
+ * Install this app (ADR-016): Android Chrome's ⋮ menu refuses a second app from ravithokala.github.io,
+ * so the app offers its own button (app-kit's install.js). Shown first while there is something to
+ * do; nothing is drawn once the app runs from its icon.
+ */
+function installSection() {
+  const state = installState();
+  if (state === 'installed') return '';
+  return el('section', { class: 'card install' },
+    el('h2', {}, 'Install this app'),
+    state === 'ready'
+      ? [el('p', {}, 'Adds The Rival to your home screen, so it opens full screen and works offline.'),
+        el('button', { class: 'button primary', type: 'button', onclick: async () => {
+          const outcome = await install();
+          if (outcome === 'accepted') toast('Installing… look for The Rival on your home screen.');
+        } }, 'Install this app')]
+      : el('p', { class: 'muted small' }, installHint()));
 }

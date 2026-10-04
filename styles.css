@@ -106,6 +106,7 @@ main { max-width: 760px; margin: 0 auto; padding: 12px 16px calc(88px + env(safe
 .actions button { flex: 1; }
 .actions.start { justify-content: flex-start; flex-wrap: wrap; }
 .actions.start button { flex: none; }
+.button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 button.danger, .actions button.danger { color: var(--bad); border-color: var(--bad); background: var(--card); }
 .danger-text { color: var(--bad) !important; }
 button.link { background: none; border: 0; padding: 6px 0; color: var(--accent); font-weight: 600; cursor: pointer; min-height: 44px; text-align: left; }
