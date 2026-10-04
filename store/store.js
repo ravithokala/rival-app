@@ -22,6 +22,8 @@ export const data = {
   /** @type {LogEntry[]} */ logs: [],
   /** @type {PointEntry[]} */ points: [],
   /** @type {Break[]} */ breaks: [],
+  /** @type {WeekResult[]} */ weeks: [],
+  /** @type {RivalLine[]} */ lines: [],
 };
 
 export const status = {
@@ -58,6 +60,8 @@ function take(rows) {
   data.logs = rows.logs ?? [];
   data.points = rows.points ?? [];
   data.breaks = rows.breaks ?? [];
+  data.weeks = rows.weeks ?? [];
+  data.lines = rows.lines ?? [];
 }
 
 /** Today on this phone, after the day cutoff (ADR-004): an entry at 01:30 counts for the evening before. */
@@ -103,7 +107,7 @@ async function run() {
     if (!r.ok) throw new Error(r.errors.map((e) => e.message).join('; '));
     const pulled = /** @type {Pulled} */ (r.data);
     const rows = { settings: pulled.settings, rules: pulled.rules, tracks: pulled.tracks, schedule: pulled.schedule, logs: pulled.logs, points: pulled.points,
-      breaks: pulled.breaks ?? [] };
+      breaks: pulled.breaks ?? [], weeks: pulled.weeks ?? [], lines: pulled.lines ?? [] };
     take(rows);
     await db.replaceRows(rows);
     Object.assign(status, { since: pulled.server_time, user: pulled.user, sheetUrl: pulled.sheet_url, lastSynced: Date.now(), error: null, online: true, timing: { ...lastTiming } });

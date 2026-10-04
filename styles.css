@@ -85,6 +85,32 @@ main { max-width: 760px; margin: 0 auto; padding: 12px 16px calc(88px + env(safe
 .rival-name { font-weight: 700; }
 .rival-line { margin: 2px 0 0; color: var(--muted); font-style: italic; }
 
+/* The Rival's scoreboard and the showdown */
+.rival-card.score-card { display: block; }
+.score-card .rival-top { display: flex; align-items: center; gap: 14px; }
+.scores { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 4px; }
+.score-row { display: grid; grid-template-columns: 5.5em 1fr 3em; align-items: center; gap: 8px; font-size: 14px; }
+.score-who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score-bar { height: 10px; border-radius: 5px; background: var(--soft); overflow: hidden; }
+.score-fill { display: block; height: 100%; border-radius: 5px; }
+.score-fill.mine { background: var(--ok); }
+.score-fill.theirs { background: var(--accent); }
+.score-value { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.final { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0; }
+.grid-card { overflow-x: auto; }
+.grid { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
+.grid th, .grid td { padding: 6px 2px; text-align: center; border-bottom: 1px solid var(--line); }
+.grid thead th:first-child, .grid tbody th { width: 34%; }
+.grid thead th { color: var(--muted); font-weight: 600; }
+.grid thead th.now { color: var(--accent); }
+.grid tbody th { text-align: left; font-weight: 600; overflow-wrap: anywhere; line-height: 1.25; }
+.grid-target { color: var(--muted); font-weight: 500; font-size: 12px; }
+.mark.done { color: var(--ok); font-weight: 700; }
+.mark.minimum { color: var(--accent); font-weight: 700; }
+.mark.missed, .mark.skipped { color: var(--muted); }
+.mark.break { color: var(--muted); font-size: 12px; }
+.legend { margin-top: 8px; }
+
 /* Today */
 .today-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .habit-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }

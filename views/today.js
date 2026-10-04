@@ -7,6 +7,7 @@ import { Points } from '../shared/points.js';
 import { Dates } from '../shared/dates.js';
 import { openSheet, toast } from './sheet.js';
 import { rivalName } from './placeholders.js';
+import { scoreCard } from './rival.js';
 
 /**
  * Today (docs/PROJECT_BRIEF.md, Screens): up to 3 habit cards with Done / Minimum / Skip in one tap, the
@@ -123,7 +124,6 @@ export function todayScreen(main) {
     return;
   }
   const week = /** @type {{ start: string, end: string, number: number }} */ (plan.week);
-  const earned = Points.earned(data.points, week.start, week.end);
 
   const weekRow = plan.thisWeek.length ? el('section', { class: 'card week-row' },
     el('h2', {}, 'This week'),
@@ -169,7 +169,7 @@ export function todayScreen(main) {
   main.replaceChildren(
     el('div', { class: 'today-head' }, el('h1', { class: 'screen-title' }, 'Today'),
       el('span', { class: 'muted small' }, `${Dates.shortDay(day)} · Week ${week.number}`)),
-    rivalCard(name, brk ? "I'm resting too. See you when you're back." : `You: ${earned} point${earned === 1 ? '' : 's'} this week. My score arrives in Milestone 3.`),
+    scoreCard(plan, day),
     breakCard,
     welcome,
     ...(plan.cards.length ? plan.cards.map((c) => habitCard(c, plan.welcomeBack))

@@ -12,8 +12,6 @@ import { Points } from './points.js';
  *
  * Shared with the phone app: scripts/sync-shared.js copies this file to pwa/shared/.
  *
- * @typedef {{ tracks: Track[], schedule: ScheduleItem[], logs: LogEntry[], settings: Record<string, string|null>,
- *   rules: Record<string, string|null>, breaks?: Break[] }} PlanData
  * @typedef {{ item: ScheduleItem, date: string, log: LogEntry|null }} Card
  * @typedef {{ item: ScheduleItem, done: number, target: number, urgent: boolean, waived: boolean, todayLog: LogEntry|null }} WeekItem
  * @typedef {{ track: Track, inWeeks: number }} Locked
