@@ -188,8 +188,10 @@ export async function saveSetting(key, value) {
 }
 
 /**
- * Adds a break, ends one ("I'm back") or removes one (ADR-018). Online only.
- * @param {{ action: 'add', from: string, to: string, keep_tracks?: string[], note?: string|null } | { action: 'end'|'remove', break_id: string }} change
+ * Adds a break, edits one, ends one ("I'm back") or removes one (ADR-018). Online only.
+ * @param {{ action: 'add', from: string, to: string, keep_tracks?: string[], note?: string|null }
+ *   | { action: 'edit', break_id: string, from: string, to: string, keep_tracks?: string[], note?: string|null }
+ *   | { action: 'end'|'remove', break_id: string }} change
  * @returns {Promise<Saved>}
  */
 export async function saveBreak(change) {

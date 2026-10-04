@@ -26,7 +26,7 @@ export function settings(main, actions) {
   main.replaceChildren(
     el('h1', { class: 'screen-title' }, 'Settings'),
     planSection(() => settings(main, actions)),
-    breaksSection(),
+    breaksSection(() => settings(main, actions)),
     el('section', { class: 'card' },
       el('h2', {}, 'Data'),
       el('p', {}, status.online ? 'Your Google Sheet is the main copy; this phone keeps a copy for quick opening.' : 'Offline: you can view everything; saving needs a connection.'),
@@ -129,44 +129,68 @@ async function download() {
   toast('Export downloaded.');
 }
 
+/** The break being edited in Settings, if any (kept across redraws until saved or cancelled). @type {string|null} */
+let editing = null;
+
 /**
  * Breaks (ADR-018): holidays and family visits, planned ahead or set this week if forgotten; a partial
- * break keeps chosen tracks on. Lists the running and planned breaks, and this month's break days.
+ * break keeps chosen tracks on. Lists the running and planned breaks (Edit, I'm back, Remove), and this
+ * month's break days. Edit fills the same form; a break that began in a closed week keeps its start and
+ * kept tracks (the server refuses changes to them).
+ * @param {() => void} redraw
  */
-function breaksSection() {
+function breaksSection(redraw) {
   const day = today();
-  const from = /** @type {HTMLInputElement} */ (el('input', { type: 'date', value: day, min: Dates.weekStart(day), 'aria-label': 'First day of the break' }));
-  const to = /** @type {HTMLInputElement} */ (el('input', { type: 'date', value: Dates.addDays(day, 6), min: Dates.weekStart(day), 'aria-label': 'Last day of the break' }));
-  const note = /** @type {HTMLInputElement} */ (el('input', { type: 'text', maxlength: '100', placeholder: 'e.g. Family visit (optional)', 'aria-label': 'Note' }));
-  const keeps = data.tracks.filter((t) => !t.paused).map((t) => /** @type {HTMLInputElement} */ (el('input', { type: 'checkbox', value: t.track_id })));
+  const weekStart = Dates.weekStart(day);
+  const current = editing ? data.breaks.find((b) => b.break_id === editing && !b.deleted) ?? null : null;
+  if (editing && !current) editing = null;
+  const fixedStart = Boolean(current && current.from < weekStart);
+  const from = /** @type {HTMLInputElement} */ (el('input', { type: 'date', value: current ? current.from : day, min: fixedStart ? null : weekStart,
+    disabled: fixedStart, 'aria-label': 'First day of the break' }));
+  const to = /** @type {HTMLInputElement} */ (el('input', { type: 'date', value: current ? current.to : Dates.addDays(day, 6), 'aria-label': 'Last day of the break' }));
+  const note = /** @type {HTMLInputElement} */ (el('input', { type: 'text', maxlength: '100', value: current?.note ?? '', placeholder: 'e.g. Family visit (optional)', 'aria-label': 'Note' }));
+  const tracks = data.tracks.filter((t) => !t.paused);
+  const keeps = tracks.map((t) => /** @type {HTMLInputElement} */ (el('input', { type: 'checkbox', value: t.track_id,
+    checked: Boolean(current?.keep_tracks.includes(t.track_id)), disabled: fixedStart })));
   const thisMonth = Schedule.breakDays(data.breaks, `${day.slice(0, 8)}01`, day);
   const upcoming = data.breaks.filter((b) => !b.deleted && b.to >= day).sort((a, b) => (a.from < b.from ? -1 : 1));
   const span = (/** @type {Break} */ b) => (b.from === b.to ? Dates.shortDay(b.from) : `${Dates.shortDay(b.from)} – ${Dates.shortDay(b.to)}`);
   const names = (/** @type {Break} */ b) => data.tracks.filter((t) => b.keep_tracks.includes(t.track_id)).map((t) => t.name);
+  const save = async (/** @type {Event} */ ev) => {
+    const button = /** @type {HTMLButtonElement} */ (ev.currentTarget);
+    button.disabled = true;
+    const fields = { from: from.value, to: to.value, keep_tracks: keeps.filter((k) => k.checked).map((k) => k.value), note: note.value || null };
+    const r = await saveBreak(current ? { action: 'edit', break_id: current.break_id, ...fields } : { action: 'add', ...fields });
+    button.disabled = false;
+    if (!r.ok) { toast(r.message); return; }
+    toast(current ? 'Break changed.' : 'Break saved.');
+    editing = null;
+    redraw();
+  };
   return el('section', { class: 'card', id: 'breaks' },
     el('h2', {}, 'Breaks'),
     el('p', { class: 'muted small' }, 'Holidays, family visits, days off: nothing is expected on a break, and nothing is missed.',
       thisMonth ? ` Break days this month: ${thisMonth}.` : ''),
     upcoming.length ? el('ul', { class: 'plain-rows' }, upcoming.map((b) => {
       const running = b.from <= day;
-      return el('li', { class: 'break-row' },
+      return el('li', { class: `break-row${b.break_id === editing ? ' editing' : ''}` },
         el('div', {}, el('div', { class: 'check-name' }, span(b)),
           el('div', { class: 'muted small' }, [running ? 'Now' : 'Planned', names(b).length ? `keeping ${names(b).join(', ')}` : 'everything paused', b.note ?? ''].filter(Boolean).join(' · '))),
-        el('button', { class: 'button', type: 'button', onclick: async () => {
-          const r = await saveBreak({ action: running && b.from < day ? 'end' : 'remove', break_id: b.break_id });
-          toast(r.ok ? (running ? 'Welcome back.' : 'Break removed.') : r.message);
-        } }, running ? "I'm back" : 'Remove'));
+        el('div', { class: 'break-buttons' },
+          el('button', { class: 'button', type: 'button', onclick: () => { editing = b.break_id; redraw(); } }, 'Edit'),
+          el('button', { class: 'button', type: 'button', onclick: async () => {
+            const r = await saveBreak({ action: running && b.from < day ? 'end' : 'remove', break_id: b.break_id });
+            if (r.ok && editing === b.break_id) editing = null;
+            toast(r.ok ? (running ? 'Welcome back.' : 'Break removed.') : r.message);
+          } }, running ? "I'm back" : 'Remove')));
     })) : '',
-    el('h3', { class: 'check-group' }, 'Take a break'),
+    el('h3', { class: 'check-group' }, current ? `Edit the break ${span(current)}` : 'Take a break'),
+    fixedStart ? el('p', { class: 'muted small' }, 'This break began in a week that has closed: its start and the tracks it keeps stay as they were.') : '',
     el('div', { class: 'row2' }, el('label', { class: 'field' }, 'From', from), el('label', { class: 'field' }, 'To', to)),
     el('p', { class: 'muted small' }, 'Keep these going (optional):'),
-    el('div', { class: 'keep-list' }, keeps.map((box, i) => el('label', { class: 'keep' }, box, ` ${data.tracks.filter((t) => !t.paused)[i].name}`))),
+    el('div', { class: 'keep-list' }, keeps.map((box, i) => el('label', { class: 'keep' }, box, ` ${tracks[i].name}`))),
     el('label', { class: 'field' }, 'Note', note),
-    el('div', { class: 'actions start' }, el('button', { class: 'button primary', type: 'button', onclick: async (/** @type {Event} */ ev) => {
-      const button = /** @type {HTMLButtonElement} */ (ev.currentTarget);
-      button.disabled = true;
-      const r = await saveBreak({ action: 'add', from: from.value, to: to.value, keep_tracks: keeps.filter((k) => k.checked).map((k) => k.value), note: note.value || null });
-      button.disabled = false;
-      toast(r.ok ? 'Break saved.' : r.message);
-    } }, 'Save break')));
+    el('div', { class: 'actions start' },
+      el('button', { class: 'button primary', type: 'button', onclick: save }, current ? 'Save changes' : 'Save break'),
+      current ? el('button', { class: 'button', type: 'button', onclick: () => { editing = null; redraw(); } }, 'Cancel') : ''));
 }
