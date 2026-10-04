@@ -10,7 +10,7 @@
  * - SHELL: every file of the app (tests/pwa.test.js checks it).
  * - LEGACY: names of older saved copies to delete (none for this app; kept as the other apps have it).
  */
-const VERSION = 'shell-4389dc8-ebcdd175c7ad';
+const VERSION = 'shell-a73c836-31e7fecd60b3';
 const SHELL = ['./', 'index.html', 'app.js', 'api.js', 'request.js', 'auth.js', 'update.js', 'freshness.js', 'guard.js', 'checks.js', 'install.js', 'config.js', 'dom.js', 'theme.js', 'theme-boot.js', 'version.js', 'styles.css',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
   'shared/dates.js', 'store/db.js', 'store/store.js',
