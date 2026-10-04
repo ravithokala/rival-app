@@ -10,7 +10,7 @@ import { VERSION } from './version.js';
 import { watchForUpdates } from './update.js';
 import { inFrame, FRAMED_MESSAGE } from './guard.js';
 import { watchInstall, onInstallChange } from './install.js';
-import { SCREENS, placeholder } from './views/placeholders.js';
+import { SCREENS } from './views/screens.js';
 import { settings } from './views/settings.js';
 import { todayScreen } from './views/today.js';
 import { showdownScreen } from './views/showdown.js';
@@ -26,12 +26,21 @@ import { readingScreen } from './views/reading.js';
  *   #/settings                                               behind the gear
  */
 
-const IDS = SCREENS.map((s) => s.id);
+/** What draws each address (the weekly review belongs to the Business tab). @type {Record<string, (main: HTMLElement) => void>} */
+const DRAW = {
+  today: todayScreen,
+  business: businessScreen,
+  review: reviewScreen,
+  reading: readingScreen,
+  progress: progressScreen,
+  showdown: showdownScreen,
+  settings: (main) => settings(main, { signOut, signOutEverywhere }),
+};
 
 /** The screen from the address. */
 function route() {
   const screen = window.location.hash.replace(/^#\/?/, '').split('/')[0] || 'today';
-  return screen === 'settings' || screen === 'review' || IDS.includes(screen) ? screen : 'today';
+  return Object.prototype.hasOwnProperty.call(DRAW, screen) ? screen : 'today';
 }
 
 let signedIn = false;
@@ -40,16 +49,7 @@ let signedIn = false;
 function show() {
   if (!signedIn) return;
   const screen = route();
-  const main = $('main');
-  if (screen === 'settings') settings(main, { signOut, signOutEverywhere });
-  else if (screen === 'today') todayScreen(main);
-  else if (screen === 'showdown') showdownScreen(main);
-  else if (screen === 'progress') progressScreen(main);
-  else if (screen === 'business') businessScreen(main);
-  else if (screen === 'review') reviewScreen(main);
-  else if (screen === 'reading') readingScreen(main);
-  else placeholder(main, /** @type {import('./views/placeholders.js').Screen} */ (SCREENS.find((s) => s.id === screen)));
-  // The weekly review belongs to the Business tab.
+  DRAW[screen]($('main'));
   const tab = screen === 'review' ? 'business' : screen;
   document.querySelectorAll('#tabs a').forEach((a) => a.setAttribute('aria-current', String(a.getAttribute('data-tab') === tab)));
   $('gear').setAttribute('aria-current', String(screen === 'settings'));
@@ -134,7 +134,12 @@ async function start() {
     checkForUpdate(true);
     if (signedIn) store.refresh().catch(() => { /* shown in the header */ });
   });
-  window.addEventListener('hashchange', () => { show(); window.scrollTo(0, 0); });
+  // Another screen: a sheet left open belongs to the one before, so it closes.
+  window.addEventListener('hashchange', () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => /** @type {HTMLDialogElement} */ (d).close());
+    show();
+    window.scrollTo(0, 0);
+  });
   store.onChange(() => show());
 
   let hasCopy = false;

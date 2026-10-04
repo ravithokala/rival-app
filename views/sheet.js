@@ -48,7 +48,8 @@ const UNDO_MS = 8000;
  */
 export function toast(text, warnings = [], undo, undoLabel = 'Undo') {
   document.getElementById('toast')?.remove();
-  const box = el('div', { id: 'toast', class: `${warnings.length ? 'has-warnings' : ''}${undo ? ' has-undo' : ''}`, onclick: () => box.remove() },
+  // A live status message, so a screen reader reads it out.
+  const box = el('div', { id: 'toast', role: 'status', class: `${warnings.length ? 'has-warnings' : ''}${undo ? ' has-undo' : ''}`, onclick: () => box.remove() },
     el('div', { class: 'toast-row' }, el('div', {}, text),
       undo ? el('button', { class: 'undo', type: 'button', onclick: (/** @type {Event} */ ev) => { ev.stopPropagation(); box.remove(); undo(); } }, undoLabel) : ''),
     warnings.map((w) => el('div', { class: 'warn' }, w.message)));

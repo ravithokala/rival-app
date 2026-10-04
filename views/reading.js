@@ -6,7 +6,7 @@ import { Reading } from '../shared/reading.js';
 import { Dates } from '../shared/dates.js';
 import { openSheet, toast } from './sheet.js';
 import { lineFor } from './rival.js';
-import { rivalName } from './placeholders.js';
+import { rivalName } from './screens.js';
 
 /**
  * Reading (Milestone 5a; docs/PROJECT_BRIEF.md, Reading; ADR-023): the books on the go, each with "Finished a chapter"

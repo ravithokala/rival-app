@@ -6,7 +6,7 @@ import { Schedule } from '../shared/schedule.js';
 import { Points } from '../shared/points.js';
 import { Dates } from '../shared/dates.js';
 import { openSheet, toast } from './sheet.js';
-import { rivalName } from './placeholders.js';
+import { rivalName } from './screens.js';
 import { scoreCard } from './rival.js';
 import { businessToday, reviewBanner } from './business.js';
 
@@ -130,11 +130,12 @@ export function todayScreen(main) {
     el('h2', {}, 'This week'),
     el('div', { class: 'chips' }, plan.thisWeek.map((w) => {
       const done = w.done >= w.target;
+      // The name read out starts with what is shown (so voice control finds it), then says the rest.
       const chip = el('button', { type: 'button', class: `chip${done ? ' done' : ''}${w.urgent ? ' urgent' : ''}`,
-        'aria-label': `${w.item.label}: ${w.done} of ${w.target} this week${w.item.mode === 'stretch' ? ', stretch' : ''}. Tap to log one today.`,
         onclick: () => send(chip, { schedule_id: w.item.schedule_id, date: day, variant: 'full' }, w.item.label),
         disabled: Boolean(w.todayLog) },
-      `${w.item.label} ${w.done}/${w.target}`, w.item.mode === 'stretch' ? ' ✦' : '', w.urgent ? ' · due' : '', w.waived && !done ? ' · break week' : '');
+      `${w.item.label} ${w.done}/${w.target}`, w.item.mode === 'stretch' ? ' ✦' : '', w.urgent ? ' · due' : '', w.waived && !done ? ' · break week' : '',
+      el('span', { class: 'visually-hidden' }, ` this week${w.item.mode === 'stretch' ? ', a stretch' : ''}. Tap to log one today.`));
       return chip;
     })),
     el('p', { class: 'muted small' }, 'Tap one to log it for today. ✦ stretch: a bonus if you do it, nothing lost if not.')) : '';

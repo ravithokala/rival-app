@@ -6,7 +6,7 @@ import { Dates } from '../shared/dates.js';
 import { Challenges } from '../shared/challenges.js';
 import { toast } from './sheet.js';
 import { lineFor } from './rival.js';
-import { rivalName } from './placeholders.js';
+import { rivalName } from './screens.js';
 
 /**
  * Progress (Milestone 3b): the points balance and the rewards shop (spend, with Undo), streaks (weeks in a

@@ -6,7 +6,7 @@ import { Schedule } from '../shared/schedule.js';
 import { Dates } from '../shared/dates.js';
 import { Model } from '../shared/model.js';
 import { weekScore, lineFor } from './rival.js';
-import { rivalName } from './placeholders.js';
+import { rivalName } from './screens.js';
 import { weekChallenge } from './progress.js';
 
 /**
@@ -58,7 +58,7 @@ export function showdownScreen(main) {
   const items = days.flatMap((d) => Schedule.activeItems(data, d, true)).filter((i) => !seen.has(i.schedule_id) && seen.add(i.schedule_id))
     .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
   const grid = el('table', { class: 'grid' },
-    el('thead', {}, el('tr', {}, el('th', { scope: 'col' }, ''), days.map((d) => el('th', { scope: 'col', class: d === day ? 'now' : '' }, Model.DAYS[Dates.weekdayIndex(d)].slice(0, 2))))),
+    el('thead', {}, el('tr', {}, el('th', { scope: 'col' }, el('span', { class: 'visually-hidden' }, 'Item')), days.map((d) => el('th', { scope: 'col', class: d === day ? 'now' : '' }, Model.DAYS[Dates.weekdayIndex(d)].slice(0, 2))))),
     el('tbody', {}, items.map((item) => el('tr', {},
       el('th', { scope: 'row' }, item.label, item.mode !== 'fixed' ? el('span', { class: 'grid-target' }, ` ${plan.thisWeek.find((w) => w.item.schedule_id === item.schedule_id)?.done ?? 0}/${item.times_per_week ?? 1}`) : ''),
       days.map((d) => { const [mark, words] = cell(item, d, day); return el('td', { class: `mark ${words.replace(' ', '-')}`, 'aria-label': words ? `${Dates.shortDay(d)}: ${words}` : '' }, mark); })))));

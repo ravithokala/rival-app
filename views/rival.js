@@ -6,7 +6,7 @@ import { Rival } from '../shared/rival.js';
 import { Dates } from '../shared/dates.js';
 import { Model } from '../shared/model.js';
 import { Schedule } from '../shared/schedule.js';
-import { rivalName } from './placeholders.js';
+import { rivalName } from './screens.js';
 
 /**
  * The Rival on screen (ADR-019): this week's scores, and its line for the moment. The line is chosen by
