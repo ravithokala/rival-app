@@ -12,8 +12,8 @@ import { loadTimeText } from '../freshness.js';
 import { installState, install, installHint } from '../install.js';
 
 /**
- * Settings, behind the gear: account, the Sheet, data status, appearance, system check. Reminder
- * times, phase unlocks, export and the reminders file arrive with their milestones.
+ * Settings, behind the gear: your plan (the Rival's name, the start date, early unlocks), breaks, account, the
+ * Sheet, appearance, export, install and the system check. No reminders in v1 (ADR-023).
  * @param {HTMLElement} main
  * @param {{ signOut: () => Promise<void>, signOutEverywhere: () => Promise<string|null> }} actions  signOutEverywhere answers why it failed
  */
@@ -52,10 +52,6 @@ export function settings(main, actions) {
       el('h2', {}, 'Export'),
       el('p', { class: 'muted small' }, 'Everything in your Sheet as one JSON file, for your own records. Needs a connection.'),
       el('div', { class: 'actions start' }, el('button', { class: 'button', type: 'button', onclick: download }, 'Export all data (JSON)'))),
-    el('section', { class: 'card coming' },
-      el('h2', {}, 'Coming later'),
-      el('ul', { class: 'plain-list' },
-        el('li', {}, 'Reminder times and the reminders calendar file (Milestone 5)'))),
     // At the bottom, out of the way: needed once per phone (RT, 2026-10-04).
     installSection(),
     // Where a slow open spends its time (as the other apps): the last refresh from the sheet.
