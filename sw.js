@@ -10,11 +10,11 @@
  * - SHELL: every file of the app (tests/pwa.test.js checks it).
  * - LEGACY: names of older saved copies to delete (none for this app; kept as the other apps have it).
  */
-const VERSION = 'shell-f6ea109-a666bf042ab5';
+const VERSION = 'shell-94911a2-4fed05bb8455';
 const SHELL = ['./', 'index.html', 'app.js', 'api.js', 'request.js', 'auth.js', 'update.js', 'freshness.js', 'guard.js', 'checks.js', 'install.js', 'config.js', 'dom.js', 'theme.js', 'theme-boot.js', 'version.js', 'styles.css',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
-  'shared/dates.js', 'shared/model.js', 'shared/schedule.js', 'shared/points.js', 'shared/rival.js', 'store/db.js', 'store/store.js',
-  'views/sheet.js', 'views/placeholders.js', 'views/today.js', 'views/rival.js', 'views/showdown.js', 'views/progress.js', 'views/settings.js', 'views/system.js'];
+  'shared/dates.js', 'shared/model.js', 'shared/schedule.js', 'shared/points.js', 'shared/rival.js', 'shared/business.js', 'store/db.js', 'store/store.js',
+  'views/sheet.js', 'views/placeholders.js', 'views/today.js', 'views/rival.js', 'views/showdown.js', 'views/progress.js', 'views/business.js', 'views/settings.js', 'views/system.js'];
 const LEGACY = /^shell-v\d+$/;
 
 // ---- Below this line: app-kit/pwa/sw-core.js. GENERATED: change it in ../app-kit, then run "node ../app-kit/sync.js" in this app. ----

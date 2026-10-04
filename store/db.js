@@ -6,13 +6,14 @@
  * tab's id column, plus meta ({ key, value }: last refresh time, who is signed in, the sheet link).
  * The database name is this app's own: the other apps on this origin use other names.
  * Version 2 added the habit tabs (Milestone 2); version 3 breaks (ADR-018); version 4 weeks and the Rival's lines (ADR-019);
- * version 5 rewards and milestones (3b).
+ * version 5 rewards and milestones (3b); version 6 the business tabs (Milestone 4).
  */
 
 const NAME = 'the-rival';
-const VERSION = 5;
+const VERSION = 6;
 /** @type {Record<string, string>} store → key path */
-const KEYS = { settings: 'key', rules: 'key', tracks: 'track_id', schedule: 'schedule_id', logs: 'log_id', points: 'point_id', breaks: 'break_id', weeks: 'week_start', lines: 'line_id', rewards: 'reward_id', milestones: 'milestone_id', meta: 'key' };
+const KEYS = { settings: 'key', rules: 'key', tracks: 'track_id', schedule: 'schedule_id', logs: 'log_id', points: 'point_id', breaks: 'break_id', weeks: 'week_start', lines: 'line_id', rewards: 'reward_id', milestones: 'milestone_id',
+  steps: 'step_id', tasks: 'task_id', dates: 'item_id', facts: 'key', meta: 'key' };
 const STORES = Object.keys(KEYS);
 /** The stores holding the server's rows (everything but meta). */
 const ROWS = STORES.filter((s) => s !== 'meta');

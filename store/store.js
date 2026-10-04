@@ -29,6 +29,10 @@ export const data = {
   /** Points earned minus spent, all time (from the server: the phone keeps only recent points). */
   balance: 0,
   /** @type {Streak[]} */ streaks: [],
+  /** @type {Step[]} */ steps: [],
+  /** @type {BizTask[]} */ tasks: [],
+  /** @type {BizDate[]} */ dates: [],
+  /** @type {Setting[]} */ facts: [],
 };
 
 export const status = {
@@ -69,6 +73,10 @@ function take(rows) {
   data.lines = rows.lines ?? [];
   data.rewards = rows.rewards ?? [];
   data.milestones = rows.milestones ?? [];
+  data.steps = rows.steps ?? [];
+  data.tasks = rows.tasks ?? [];
+  data.dates = rows.dates ?? [];
+  data.facts = rows.facts ?? [];
 }
 
 /** Today on this phone, after the day cutoff (ADR-004): an entry at 01:30 counts for the evening before. */
@@ -116,7 +124,8 @@ async function run() {
     if (!r.ok) throw new Error(r.errors.map((e) => e.message).join('; '));
     const pulled = /** @type {Pulled} */ (r.data);
     const rows = { settings: pulled.settings, rules: pulled.rules, tracks: pulled.tracks, schedule: pulled.schedule, logs: pulled.logs, points: pulled.points,
-      breaks: pulled.breaks ?? [], weeks: pulled.weeks ?? [], lines: pulled.lines ?? [], rewards: pulled.rewards ?? [], milestones: pulled.milestones ?? [] };
+      breaks: pulled.breaks ?? [], weeks: pulled.weeks ?? [], lines: pulled.lines ?? [], rewards: pulled.rewards ?? [], milestones: pulled.milestones ?? [],
+      steps: pulled.steps ?? [], tasks: pulled.tasks ?? [], dates: pulled.dates ?? [], facts: pulled.facts ?? [] };
     take(rows);
     data.balance = pulled.balance ?? 0;
     data.streaks = pulled.streaks ?? [];
@@ -273,6 +282,47 @@ export async function tickMilestone(milestoneId, undo = false) {
     return { ok: true };
   } catch (e) {
     return refuse(isOffline(e) ? "You're offline: connect to tick a milestone." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
+  }
+}
+
+/**
+ * Works a business task: done, in progress (note), blocked (reason) or reopen (Milestone 4). Online only. The points
+ * it earns come back with the next refresh (started here); the balance moves at once.
+ * @param {string} taskId @param {'done'|'progress'|'blocked'|'reopen'} action @param {string|null} [note]
+ * @returns {Promise<Saved>}
+ */
+export async function updateTask(taskId, action, note = null) {
+  if (!navigator.onLine) return refuse("You're offline: connect to update the task.");
+  const current = data.tasks.find((t) => t.task_id === taskId);
+  try {
+    const r = await call('task.update', { task_id: taskId, action, note, base_version: current?.version ?? 0 });
+    if (!r.ok && r.errors[0]?.code !== 'CONFLICT') return refuse(r.errors.map((e) => e.message).join('; '));
+    const task = /** @type {BizTask} */ (r.data.task);
+    data.tasks = [...data.tasks.filter((t) => t.task_id !== task.task_id), task];
+    data.balance = r.data.balance;
+    await db.putRows({ tasks: [task] });
+    await db.setMeta({ balance: data.balance });
+    changed();
+    refresh().catch(() => { /* shown in the header */ });
+    return r.ok ? { ok: true } : refuse(r.errors.map((e) => e.message).join('; '));
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: connect to update the task." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
+  }
+}
+
+/** Marks a key date as checked today. Online only. @param {string} itemId @returns {Promise<Saved>} */
+export async function verifyDate(itemId) {
+  if (!navigator.onLine) return refuse("You're offline: connect to mark it verified.");
+  try {
+    const r = await call('date.verify', { item_id: itemId });
+    if (!r.ok) return refuse(r.errors.map((e) => e.message).join('; '));
+    const d = /** @type {BizDate} */ (r.data.date);
+    data.dates = [...data.dates.filter((x) => x.item_id !== d.item_id), d];
+    await db.putRows({ dates: [d] });
+    changed();
+    return { ok: true };
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: connect to mark it verified." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
   }
 }
 

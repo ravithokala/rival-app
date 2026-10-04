@@ -8,6 +8,7 @@ import { Dates } from '../shared/dates.js';
 import { openSheet, toast } from './sheet.js';
 import { rivalName } from './placeholders.js';
 import { scoreCard } from './rival.js';
+import { businessToday } from './business.js';
 
 /**
  * Today (docs/PROJECT_BRIEF.md, Screens): up to 3 habit cards with Done / Minimum / Skip in one tap, the
@@ -174,6 +175,7 @@ export function todayScreen(main) {
     welcome,
     ...(plan.cards.length ? plan.cards.map((c) => habitCard(c, plan.welcomeBack))
       : brk ? [] : [el('section', { class: 'card' }, el('p', { class: 'muted' }, 'Nothing scheduled today.'))]),
+    businessToday(day),
     tvFree(plan),
     weekRow,
     catchUp,
