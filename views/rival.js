@@ -49,8 +49,12 @@ function situations(plan, s, day) {
   const urgent = open.find((w) => w.urgent);
   const eve = new Date().getHours() >= 18 ? open.find((w) => w.item.mode === 'weekly' && !w.waived && w.item.days.includes(tomorrow)) : undefined;
   const stretch = dow >= 4 ? open.find((w) => w.item.mode === 'stretch') : undefined;
+  // A milestone reached in the last two days: the Rival admits defeat (3b).
+  const fresh = data.milestones.filter((m) => m.achieved_on && Dates.daysBetween(m.achieved_on, day) <= 1)
+    .sort((a, b) => ((a.achieved_on ?? '') < (b.achieved_on ?? '') ? 1 : -1))[0];
   const list = [
     plan.welcomeBack ? 'welcome-back' : '',
+    fresh ? 'milestone' : '',
     plan.onBreak ? 'break' : '',
     s.setback && dow <= 1 ? 'setback' : '',
     dow === 6 ? 'showdown' : '',
@@ -62,7 +66,7 @@ function situations(plan, s, day) {
     'morning',
   ].filter(Boolean);
   const activity = (urgent ?? eve ?? stretch)?.item.label ?? '';
-  return { list, vars: { name: rivalName(), me: s.me, rival: s.rival, gap: Math.abs(s.me - s.rival), activity,
+  return { list, vars: { name: rivalName(), me: s.me, rival: s.rival, gap: Math.abs(s.me - s.rival), activity, title: fresh?.title ?? '',
     days_left: Dates.daysBetween(day, week.end) + 1, day: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dow] } };
 }
 

@@ -5,7 +5,8 @@
 /**
  * Points for a log (ADR-009): the full version earns the track's points, a minimum version the minimum,
  * a stretch item (the ride) a bonus on top, a skip nothing. A weekly or stretch item earns nothing beyond
- * its weekly target plus the extras cap (ADR-008). Values come from the Rules tab.
+ * its weekly target plus the extras cap (ADR-008). The TV-free evening (an extra) earns its points, plus the
+ * swap bonus when a habit was done that day. Values come from the Rules tab.
  *
  * Shared with the phone app: scripts/sync-shared.js copies this file to pwa/shared/.
  */
@@ -18,10 +19,15 @@ const Points = (() => {
    * @param {ScheduleItem} item
    * @param {Record<string, string|null>} rules
    * @param {number} doneEarlierThisWeek  this item's other done logs this week (not this one)
+   * @param {number} [habitsDoneToday]  for an extra: the habits done that day (the swap bonus)
    * @returns {{ amount: number, reason: string }}
    */
-  function forLog(variant, item, rules, doneEarlierThisWeek) {
+  function forLog(variant, item, rules, doneEarlierThisWeek, habitsDoneToday = 0) {
     if (variant === 'skipped') return { amount: 0, reason: `${item.label} skipped` };
+    if (item.extra) {
+      const swap = habitsDoneToday > 0 ? num(rules.tv_swap_bonus) : 0;
+      return { amount: num(rules[`points_${item.track_id}`]) + swap, reason: swap ? `${item.label} (+ swap bonus)` : item.label };
+    }
     if (item.mode !== 'fixed' && doneEarlierThisWeek >= (item.times_per_week ?? 1) + num(rules.extras_cap)) {
       return { amount: 0, reason: `${item.label}: over this week's limit` };
     }
@@ -34,7 +40,10 @@ const Points = (() => {
   const earned = (points, from, to) => points.filter((p) => !p.deleted && p.type === 'earn' && p.date >= from && p.date <= to)
     .reduce((sum, p) => sum + (p.amount ?? 0), 0);
 
-  return { num, forLog, earned };
+  /** The balance: every point earned minus every point spent (spend rows hold the cost). @param {PointEntry[]} points */
+  const balance = (points) => points.filter((p) => !p.deleted).reduce((sum, p) => sum + (p.type === 'earn' ? p.amount ?? 0 : p.type === 'spend' ? -(p.amount ?? 0) : 0), 0);
+
+  return { num, forLog, earned, balance };
 })();
 
 export { Points };

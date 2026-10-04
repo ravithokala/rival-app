@@ -17,7 +17,7 @@ import { Points } from './points.js';
  * @typedef {{ track: Track, inWeeks: number }} Locked
  * @typedef {{ started: boolean, startsOn: string|null, week: { start: string, end: string, number: number }|null,
  *   cards: Card[], thisWeek: WeekItem[], catchUp: Card[], locked: Locked[], onBreak: Break|null, welcomeBack: boolean,
- *   breakDaysThisMonth: number }} Plan
+ *   breakDaysThisMonth: number, extras: Card[] }} Plan
  */
 const Schedule = (() => {
   /** Today never shows more than 3 habit cards (docs/PROJECT_BRIEF.md). */
@@ -75,6 +75,9 @@ const Schedule = (() => {
   /** Whether a fixed item is due on a date. @param {ScheduleItem} item @param {string} date */
   const dueOn = (item, date) => item.mode === 'fixed' && item.days.includes(Model.DAYS[Dates.weekdayIndex(date)]);
 
+  /** A habit in the plan, not a bonus toggle such as the TV-free evening (3b). @param {ScheduleItem} item */
+  const isHabit = (item) => !item.extra;
+
   /** The live log of an item on a date. @param {LogEntry[]} logs @param {string} scheduleId @param {string} date */
   const logFor = (logs, scheduleId, date) => logs.find((l) => !l.deleted && l.schedule_id === scheduleId && l.date === date) ?? null;
 
@@ -89,10 +92,11 @@ const Schedule = (() => {
     const onBreak = breakOn(data.breaks, today);
     const breakDaysThisMonth = breakDays(data.breaks, `${today.slice(0, 8)}01`, today);
     if (!start || today < start) {
-      return { started: false, startsOn: start, week: null, cards: [], thisWeek: [], catchUp: [], locked: [], onBreak, welcomeBack: false, breakDaysThisMonth };
+      return { started: false, startsOn: start, week: null, cards: [], thisWeek: [], catchUp: [], locked: [], onBreak, welcomeBack: false, breakDaysThisMonth, extras: [] };
     }
     const week = { start: Dates.weekStart(today), end: Dates.addDays(Dates.weekStart(today), 6), number: weekNumber(start, today) };
-    const items = activeItems(data, today);
+    const all = activeItems(data, today);
+    const items = all.filter(isHabit);
     const inWeek = data.logs.filter((l) => !l.deleted && l.date >= week.start && l.date <= today);
     const daysLeft = Dates.daysBetween(today, week.end) + 1;
 
@@ -131,7 +135,7 @@ const Schedule = (() => {
     /** @type {Card[]} */
     const catchUp = [];
     for (let d = week.start > start ? week.start : start; d < today; d = Dates.addDays(d, 1)) {
-      for (const item of activeItems(data, d)) if (dueOn(item, d) && !logFor(data.logs, item.schedule_id, d)) catchUp.push({ item, date: d, log: null });
+      for (const item of activeItems(data, d)) if (isHabit(item) && dueOn(item, d) && !logFor(data.logs, item.schedule_id, d)) catchUp.push({ item, date: d, log: null });
     }
 
     const locked = data.tracks.filter((t) => !t.paused && !trackOpen(t, data.settings, today))
@@ -139,7 +143,9 @@ const Schedule = (() => {
 
     // The first day after a break: minimum versions are enough to restart (docs/PROJECT_BRIEF.md: no guilt).
     const welcomeBack = !onBreak && Boolean(breakOn(data.breaks, yesterday));
-    return { started: true, startsOn: start, week, cards, thisWeek, catchUp, locked, onBreak, welcomeBack, breakDaysThisMonth };
+    // Bonus toggles due today (the TV-free evening), outside the 3 cards.
+    const extras = all.filter((i) => !isHabit(i) && dueOn(i, today)).map((item) => ({ item, date: today, log: logFor(data.logs, item.schedule_id, today) }));
+    return { started: true, startsOn: start, week, cards, thisWeek, catchUp, locked, onBreak, welcomeBack, breakDaysThisMonth, extras };
   }
 
   /**
@@ -157,7 +163,7 @@ const Schedule = (() => {
     return null;
   }
 
-  return { MAX_CARDS, isDone, weekNumber, unlockedEarly, trackOpen, breakOn, breakDays, activeItems, dueOn, logFor, plan, whyNotLoggable };
+  return { MAX_CARDS, isDone, isHabit, weekNumber, unlockedEarly, trackOpen, breakOn, breakDays, activeItems, dueOn, logFor, plan, whyNotLoggable };
 })();
 
 export { Schedule };

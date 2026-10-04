@@ -56,7 +56,7 @@ const Rival = (() => {
    */
   function perfectDay(data, date) {
     const weekStart = Dates.weekStart(date);
-    const items = Schedule.activeItems(data, date);
+    const items = Schedule.activeItems(data, date).filter(Schedule.isHabit);
     const full = (/** @type {ScheduleItem} */ i) => Points.forLog('full', i, data.rules, 0).amount;
     let sum = items.filter((i) => Schedule.dueOn(i, date)).reduce((s, i) => s + full(i), 0);
     for (const item of items.filter((i) => i.mode === 'weekly')) {
@@ -103,7 +103,7 @@ const Rival = (() => {
     const all = days(data, weekStart, Dates.addDays(weekStart, 6));
     if (!all.length) return false;
     const done = (/** @type {string} */ id, /** @type {string} */ d) => data.logs.some((l) => l.schedule_id === id && l.date === d && Schedule.isDone(l));
-    for (const d of all) for (const i of Schedule.activeItems(data, d)) if (Schedule.dueOn(i, d) && !done(i.schedule_id, d)) return false;
+    for (const d of all) for (const i of Schedule.activeItems(data, d)) if (Schedule.isHabit(i) && Schedule.dueOn(i, d) && !done(i.schedule_id, d)) return false;
     const week = Schedule.plan(data, Dates.addDays(weekStart, 6));
     return week.thisWeek.filter((w) => w.item.mode === 'weekly' && !w.waived).every((w) => w.done >= w.target);
   }

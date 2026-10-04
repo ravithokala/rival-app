@@ -174,6 +174,7 @@ export function todayScreen(main) {
     welcome,
     ...(plan.cards.length ? plan.cards.map((c) => habitCard(c, plan.welcomeBack))
       : brk ? [] : [el('section', { class: 'card' }, el('p', { class: 'muted' }, 'Nothing scheduled today.'))]),
+    tvFree(plan),
     weekRow,
     catchUp,
     plan.locked.length ? el('p', { class: 'muted small locked' },
@@ -197,4 +198,24 @@ function rivalCard(name, line) {
   return el('section', { class: 'card rival-card' },
     el('span', { class: 'rival-avatar', 'aria-hidden': 'true' }),
     el('div', {}, el('div', { class: 'rival-name' }, name), el('p', { class: 'rival-line' }, line)));
+}
+
+/**
+ * The TV-free evening (3b): a toggle from 18:00 (or once logged), 10 points, +5 if a habit was done today.
+ * Not a habit card: it never takes one of the 3 slots, and nothing is missed without it.
+ * @param {import('../shared/schedule.js').Plan} plan
+ */
+function tvFree(plan) {
+  const extra = plan.extras[0];
+  if (!extra || (!extra.log && new Date().getHours() < 18)) return '';
+  const on = Boolean(extra.log && extra.log.variant === 'full');
+  const earned = extra.log ? pointsOf(extra.log) : 0;
+  const box = el('section', { class: 'card tv-free' });
+  box.append(
+    el('div', { class: 'tv-text' }, el('h2', {}, extra.item.label),
+      el('p', { class: 'muted small' }, on ? `+${earned} points. Enjoy the quiet.` : `+${Points.num(data.rules[`points_${extra.item.track_id}`])}, and +${Points.num(data.rules.tv_swap_bonus)} more if you did a habit today.`)),
+    el('button', { class: `switch${on ? ' on' : ''}`, type: 'button', role: 'switch', 'aria-checked': String(on), 'aria-label': extra.item.label,
+      onclick: () => send(box, on ? { schedule_id: extra.item.schedule_id, date: extra.date, undo: true } : { schedule_id: extra.item.schedule_id, date: extra.date, variant: 'full' }, on ? undefined : extra.item.label) },
+    el('span', { class: 'knob' })));
+  return box;
 }

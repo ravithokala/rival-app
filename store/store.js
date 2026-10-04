@@ -24,6 +24,11 @@ export const data = {
   /** @type {Break[]} */ breaks: [],
   /** @type {WeekResult[]} */ weeks: [],
   /** @type {RivalLine[]} */ lines: [],
+  /** @type {Reward[]} */ rewards: [],
+  /** @type {Milestone[]} */ milestones: [],
+  /** Points earned minus spent, all time (from the server: the phone keeps only recent points). */
+  balance: 0,
+  /** @type {Streak[]} */ streaks: [],
 };
 
 export const status = {
@@ -62,6 +67,8 @@ function take(rows) {
   data.breaks = rows.breaks ?? [];
   data.weeks = rows.weeks ?? [];
   data.lines = rows.lines ?? [];
+  data.rewards = rows.rewards ?? [];
+  data.milestones = rows.milestones ?? [];
 }
 
 /** Today on this phone, after the day cutoff (ADR-004): an entry at 01:30 counts for the evening before. */
@@ -76,6 +83,8 @@ export async function load() {
     saved = await db.loadAll();
   }
   take(saved.rows);
+  data.balance = saved.meta.balance ?? 0;
+  data.streaks = saved.meta.streaks ?? [];
   status.since = saved.meta.since ?? null;
   status.user = saved.meta.user ?? '';
   status.sheetUrl = saved.meta.sheetUrl ?? '';
@@ -107,11 +116,13 @@ async function run() {
     if (!r.ok) throw new Error(r.errors.map((e) => e.message).join('; '));
     const pulled = /** @type {Pulled} */ (r.data);
     const rows = { settings: pulled.settings, rules: pulled.rules, tracks: pulled.tracks, schedule: pulled.schedule, logs: pulled.logs, points: pulled.points,
-      breaks: pulled.breaks ?? [], weeks: pulled.weeks ?? [], lines: pulled.lines ?? [] };
+      breaks: pulled.breaks ?? [], weeks: pulled.weeks ?? [], lines: pulled.lines ?? [], rewards: pulled.rewards ?? [], milestones: pulled.milestones ?? [] };
     take(rows);
+    data.balance = pulled.balance ?? 0;
+    data.streaks = pulled.streaks ?? [];
     await db.replaceRows(rows);
     Object.assign(status, { since: pulled.server_time, user: pulled.user, sheetUrl: pulled.sheet_url, lastSynced: Date.now(), error: null, online: true, timing: { ...lastTiming } });
-    await db.setMeta({ since: status.since, user: status.user, sheetUrl: status.sheetUrl, lastSynced: status.lastSynced });
+    await db.setMeta({ since: status.since, user: status.user, sheetUrl: status.sheetUrl, lastSynced: status.lastSynced, balance: data.balance, streaks: data.streaks });
   } catch (e) {
     status.online = !isOffline(e);
     status.error = status.online ? (e instanceof Error ? e.message : String(e)) : null;
@@ -133,6 +144,10 @@ const refuse = (message) => ({ ok: false, message });
  */
 async function keep(log, point) {
   if (!log) return;
+  // The balance moves by what this log now earns, less what it earned before.
+  const before = data.points.find((p) => p.log_id === log.log_id && !p.deleted)?.amount ?? 0;
+  data.balance += (point && !point.deleted ? point.amount ?? 0 : 0) - before;
+  db.setMeta({ balance: data.balance }).catch(() => { /* refreshed from the server next time */ });
   data.logs = [...data.logs.filter((l) => l.log_id !== log.log_id), log];
   // The log's earlier points row goes (undone, or now worth nothing) unless the server sent its new version.
   data.points = data.points.map((p) => (p.log_id === log.log_id && !p.deleted && p.point_id !== point?.point_id ? { ...p, deleted: true } : p))
@@ -217,6 +232,50 @@ export async function saveBreak(change) {
   }
 }
 
+/**
+ * Buys a reward (a 'spend' row; the server refuses it if the balance is short), or undoes a spend. Online only.
+ * @param {{ reward_id: string } | { undo: string }} change
+ * @returns {Promise<Saved & { pointId?: string }>}
+ */
+export async function spendReward(change) {
+  if (!navigator.onLine) return refuse("You're offline: connect to spend points.");
+  try {
+    const r = await call('reward.spend', change);
+    if (!r.ok) return refuse(r.errors.map((e) => e.message).join('; '));
+    const point = /** @type {PointEntry} */ (r.data.point);
+    data.points = [...data.points.filter((p) => p.point_id !== point.point_id), point];
+    data.balance = r.data.balance;
+    await db.putRows({ points: [point] });
+    await db.setMeta({ balance: data.balance });
+    changed();
+    return { ok: true, pointId: point.point_id };
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: connect to spend points." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
+  }
+}
+
+/**
+ * Ticks a manual milestone as reached today, or unticks it. Online only.
+ * @param {string} milestoneId @param {boolean} [undo]
+ * @returns {Promise<Saved>}
+ */
+export async function tickMilestone(milestoneId, undo = false) {
+  if (!navigator.onLine) return refuse("You're offline: connect to tick a milestone.");
+  try {
+    const r = await call('milestone.tick', { milestone_id: milestoneId, undo });
+    if (!r.ok) return refuse(r.errors.map((e) => e.message).join('; '));
+    const m = /** @type {Milestone} */ (r.data.milestone);
+    data.milestones = [...data.milestones.filter((x) => x.milestone_id !== m.milestone_id), m];
+    data.balance = r.data.balance;
+    await db.putRows({ milestones: [m] });
+    await db.setMeta({ balance: data.balance });
+    changed();
+    return { ok: true };
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: connect to tick a milestone." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
+  }
+}
+
 /** Every row of every tab, from the server (Settings → Export). @returns {Promise<{ ok: true, data: any } | { ok: false, message: string }>} */
 export async function exportAll() {
   try {
@@ -231,6 +290,8 @@ export async function exportAll() {
 export async function forget() {
   await db.clearAll();
   take({});
+  data.balance = 0;
+  data.streaks = [];
   Object.assign(status, { user: '', sheetUrl: '', since: null, lastSynced: null, error: null });
   changed();
 }

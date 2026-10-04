@@ -14,6 +14,7 @@ import { SCREENS, placeholder } from './views/placeholders.js';
 import { settings } from './views/settings.js';
 import { todayScreen } from './views/today.js';
 import { showdownScreen } from './views/showdown.js';
+import { progressScreen } from './views/progress.js';
 
 /**
  * The Rival (docs/PROJECT_BRIEF.md). Starts the app, signs in, loads this phone's copy, keeps it in
@@ -40,6 +41,7 @@ function show() {
   if (screen === 'settings') settings(main, { signOut, signOutEverywhere });
   else if (screen === 'today') todayScreen(main);
   else if (screen === 'showdown') showdownScreen(main);
+  else if (screen === 'progress') progressScreen(main);
   else placeholder(main, /** @type {import('./views/placeholders.js').Screen} */ (SCREENS.find((s) => s.id === screen)));
   document.querySelectorAll('#tabs a').forEach((a) => a.setAttribute('aria-current', String(a.getAttribute('data-tab') === screen)));
   $('gear').setAttribute('aria-current', String(screen === 'settings'));

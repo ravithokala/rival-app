@@ -11,8 +11,10 @@ import { Schedule } from './schedule.js';
  */
 const Model = (() => {
   const TRACK_FIELDS = Object.freeze(['track_id', 'name', 'voice', 'unlock_week', 'paused', 'version', 'updated_at']);
+  // extra (added at the end, 3b): a bonus toggle such as the TV-free evening, outside the plan: not a habit card, not in the
+  // catch-up, the perfect week or the Rival's score.
   const SCHEDULE_FIELDS = Object.freeze(['schedule_id', 'track_id', 'label', 'mode', 'days', 'times_per_week', 'min_minutes',
-    'full_minutes', 'sort', 'paused', 'version', 'updated_at']);
+    'full_minutes', 'sort', 'paused', 'version', 'updated_at', 'extra']);
   const LOG_FIELDS = Object.freeze(['log_id', 'date', 'schedule_id', 'track_id', 'variant', 'minutes', 'note', 'deleted', 'version',
     'updated_at']);
   const POINT_FIELDS = Object.freeze(['point_id', 'date', 'type', 'amount', 'reason', 'log_id', 'deleted', 'version', 'updated_at']);
@@ -21,6 +23,9 @@ const Model = (() => {
   /** A closed week (ADR-019). */
   const WEEK_FIELDS = Object.freeze(['week_start', 'my_points', 'rival_points', 'rival_pct', 'perfect', 'setback', 'closed_at', 'deleted', 'version', 'updated_at']);
   const LINE_FIELDS = Object.freeze(['line_id', 'trigger', 'template', 'paused', 'version', 'updated_at']);
+  /** The rewards shop and milestones (Milestone 3b). */
+  const REWARD_FIELDS = Object.freeze(['reward_id', 'name', 'cost', 'paused', 'version', 'updated_at']);
+  const MILESTONE_FIELDS = Object.freeze(['milestone_id', 'title', 'track', 'month', 'condition', 'bonus', 'achieved_on', 'paused', 'version', 'updated_at']);
 
   /** fixed: tied to weekdays; weekly: N times a week, any day; stretch: if possible, no penalty (ADR-008). */
   const MODES = Object.freeze(['fixed', 'weekly', 'stretch']);
@@ -39,7 +44,7 @@ const Model = (() => {
   const MAX_NOTE = 500;
   const MAX_MINUTES = 600;
 
-  return { TRACK_FIELDS, SCHEDULE_FIELDS, LOG_FIELDS, POINT_FIELDS, BREAK_FIELDS, WEEK_FIELDS, LINE_FIELDS, MODES, VARIANTS, VOICES, DAYS, POINT_TYPES, SETTING_KEYS,
+  return { TRACK_FIELDS, SCHEDULE_FIELDS, LOG_FIELDS, POINT_FIELDS, BREAK_FIELDS, WEEK_FIELDS, LINE_FIELDS, REWARD_FIELDS, MILESTONE_FIELDS, MODES, VARIANTS, VOICES, DAYS, POINT_TYPES, SETTING_KEYS,
     ID, MAX_NOTE, MAX_MINUTES, MAX_BREAK_DAYS };
 })();
 
