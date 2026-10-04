@@ -16,6 +16,7 @@ import { todayScreen } from './views/today.js';
 import { showdownScreen } from './views/showdown.js';
 import { progressScreen } from './views/progress.js';
 import { businessScreen } from './views/business.js';
+import { reviewScreen } from './views/review.js';
 
 /**
  * The Rival (docs/PROJECT_BRIEF.md). Starts the app, signs in, loads this phone's copy, keeps it in
@@ -29,7 +30,7 @@ const IDS = SCREENS.map((s) => s.id);
 /** The screen from the address. */
 function route() {
   const screen = window.location.hash.replace(/^#\/?/, '').split('/')[0] || 'today';
-  return screen === 'settings' || IDS.includes(screen) ? screen : 'today';
+  return screen === 'settings' || screen === 'review' || IDS.includes(screen) ? screen : 'today';
 }
 
 let signedIn = false;
@@ -44,8 +45,11 @@ function show() {
   else if (screen === 'showdown') showdownScreen(main);
   else if (screen === 'progress') progressScreen(main);
   else if (screen === 'business') businessScreen(main);
+  else if (screen === 'review') reviewScreen(main);
   else placeholder(main, /** @type {import('./views/placeholders.js').Screen} */ (SCREENS.find((s) => s.id === screen)));
-  document.querySelectorAll('#tabs a').forEach((a) => a.setAttribute('aria-current', String(a.getAttribute('data-tab') === screen)));
+  // The weekly review belongs to the Business tab.
+  const tab = screen === 'review' ? 'business' : screen;
+  document.querySelectorAll('#tabs a').forEach((a) => a.setAttribute('aria-current', String(a.getAttribute('data-tab') === tab)));
   $('gear').setAttribute('aria-current', String(screen === 'settings'));
   showSyncState();
 }

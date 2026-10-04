@@ -41,6 +41,9 @@ export async function copy(text, done) {
   }
 }
 
+/** A key date: 'Tue 1 Jun', with the year when it is not this year ('Tue 1 Jun 2027'). @param {string} iso @param {string} day */
+export const dateLabel = (iso, day) => `${Dates.shortDay(iso)}${iso.slice(0, 4) === day.slice(0, 4) ? '' : ` ${iso.slice(0, 4)}`}`;
+
 const STATUS_WORDS = { todo: 'To do', in_progress: 'In progress', blocked: 'Blocked', done: 'Done', retired: 'Retired' };
 
 /** The STATUS block for now. */
@@ -71,7 +74,7 @@ function noteSheet(task, action) {
 
 /**
  * One task: id and title, estimate, first action, what done looks like (or what today means), and its buttons.
- * @param {BizTask} task @param {{ overBudget?: boolean, budget?: number, day?: string }} [today] on Today
+ * @param {BizTask} task @param {{ overBudget?: boolean, budget?: number, day?: string, planned?: 'today'|'carried'|null, from?: string|null, restart?: boolean }} [today] on Today
  */
 function taskBox(task, today = {}) {
   const box = el('div', { class: `task status-${task.status}` });
@@ -85,8 +88,10 @@ function taskBox(task, today = {}) {
   box.append(
     el('div', { class: 'task-head' }, el('span', { class: 'task-id' }, task.task_id), el('span', { class: 'task-title' }, task.title),
       el('span', { class: 'muted small' }, task.estimate_min ? `${task.estimate_min} min` : '')),
+    today.planned ? el('p', { class: 'plan-tag' }, today.planned === 'today' ? 'Planned for today' : `Carried from ${Dates.shortDay(/** @type {string} */ (today.from)).slice(0, 3)}`) : '',
+    today.restart ? el('p', { class: 'task-line' }, el('strong', {}, 'Restart: '), `just 15 minutes on ${task.task_id} today. That counts.`) : '',
     task.first_action && open ? el('p', { class: 'task-line' }, el('strong', {}, 'First action: '), task.first_action) : '',
-    today.overBudget
+    today.overBudget && !today.restart
       ? el('p', { class: 'task-line' }, el('strong', {}, 'Done today: '), `${today.budget} minutes on ${task.task_id} and a note of where you stopped.`)
       : task.done_looks_like && open ? el('p', { class: 'task-line' }, el('strong', {}, 'Done looks like: '), task.done_looks_like) : '',
     task.note ? el('p', { class: 'muted small' }, `Note: ${task.note}`) : '',
@@ -114,11 +119,28 @@ export function businessToday(day) {
   if (!data.tasks.length) return '';
   const budget = Business.budgetOn(data, day);
   if (!budget) return '';
-  const picks = Business.today(data.tasks, data.steps, budget, Dates.weekStart(day), skippedOn(day));
+  const weekStart = Dates.weekStart(day);
+  // After two or more business days missed in a row: one small restart task instead of the list (4b).
+  if (Business.missedInARow(data, data.tasks, day) >= 2) {
+    const restart = Business.restartTask(data.tasks, data.steps, weekStart);
+    return el('section', { class: 'card business-today' },
+      el('div', { class: 'habit-head' }, el('h2', {}, 'Business today'), el('span', { class: 'muted small' }, '15 min')),
+      el('p', { class: 'muted small' }, 'A couple of days off the business. One small step gets it moving again.'),
+      restart ? taskBox(restart, { day, restart: true, budget: 15 }) : el('p', { class: 'muted' }, 'Nothing ready right now. Check Business for blocked tasks.'));
+  }
+  const picks = Business.todayPlanned(data.tasks, data.steps, data.plans, budget, day, skippedOn(day));
   return el('section', { class: 'card business-today' },
     el('div', { class: 'habit-head' }, el('h2', {}, 'Business today'), el('span', { class: 'muted small' }, `${budget} min`)),
-    picks.length ? picks.map((p) => taskBox(p.task, { overBudget: p.overBudget, budget, day }))
+    picks.length ? picks.map((p) => taskBox(p.task, { overBudget: p.overBudget, budget, day, planned: p.planned, from: p.from }))
       : el('p', { class: 'muted' }, 'Nothing ready right now. Check Business for blocked tasks.'));
+}
+
+/** "Weekly review ready" on Today, until this week's plan is accepted (4b). @param {string} day */
+export function reviewBanner(day) {
+  if (!Business.reviewDue(data.tasks, data.plans, day)) return '';
+  return el('section', { class: 'card review-banner' },
+    el('div', {}, el('h2', {}, 'Weekly review ready'), el('p', { class: 'muted small' }, 'Last week, progress, dates at risk, and a plan for this week.')),
+    el('a', { class: 'button primary', href: '#/review' }, 'Review'));
 }
 
 /** The Business tab. @param {HTMLElement} main */
@@ -136,7 +158,7 @@ export function businessScreen(main) {
   const status = statusText();
 
   main.replaceChildren(
-    el('h1', { class: 'screen-title' }, 'Business'),
+    el('div', { class: 'today-head' }, el('h1', { class: 'screen-title' }, 'Business'), el('a', { class: 'button', href: '#/review' }, 'Weekly review')),
     el('section', { class: 'card' },
       el('h2', {}, 'Steps'),
       el('ul', { class: 'plain-rows' }, progress.map((p) => el('li', { class: 'step-row' },
@@ -162,7 +184,7 @@ export function businessScreen(main) {
       el('h2', {}, 'Key dates'),
       el('ul', { class: 'plain-rows' }, risk.sort((a, b) => ((a.date.date ?? '9') < (b.date.date ?? '9') ? -1 : 1)).map((r) => el('li', { class: 'date-row' },
         el('div', {}, el('div', { class: 'check-name' }, r.date.item),
-          el('div', { class: 'muted small' }, [r.date.date ? Dates.shortDay(r.date.date) : 'no date', r.date.confirmed === 'yes' ? 'confirmed' : 'expected',
+          el('div', { class: 'muted small' }, [r.date.date ? dateLabel(r.date.date, day) : 'no date', r.date.confirmed === 'yes' ? 'confirmed' : 'expected',
             r.date.last_verified ? `checked ${Dates.shortDay(r.date.last_verified)}` : 'never checked'].join(' · ')),
           r.soon || r.stale ? el('div', { class: 'flag' }, [r.soon ? 'within 60 days' : '', r.stale ? 'verify in Claude chat' : ''].filter(Boolean).join(' · ')) : ''),
         el('button', { class: 'button', type: 'button', onclick: async () => { const v = await verifyDate(r.date.item_id); toast(v.ok ? 'Marked as checked today.' : v.message); } }, 'Mark verified'))))) : '',

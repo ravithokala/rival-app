@@ -31,6 +31,8 @@ const Model = (() => {
   const TASK_FIELDS = Object.freeze(['task_id', 'step_id', 'title', 'estimate_min', 'depends_on', 'first_action', 'done_looks_like', 'kind',
     'repeat', 'status', 'note', 'done_on', 'closed_week', 'version', 'updated_at']);
   const DATE_FIELDS = Object.freeze(['item_id', 'item', 'date', 'confirmed', 'source', 'last_verified', 'version', 'updated_at']);
+  /** An accepted weekly plan (4b): one row per task and day; plan_id is '<date>|<task_id>'. */
+  const PLAN_FIELDS = Object.freeze(['plan_id', 'week_start', 'date', 'task_id', 'deleted', 'version', 'updated_at']);
   const TASK_STATUSES = Object.freeze(['todo', 'in_progress', 'blocked', 'done', 'retired']);
   const TASK_KINDS = Object.freeze(['task', 'outreach']);
   /** A task or step id: 0A, 1, 0A.1, 3.4 … */
@@ -54,7 +56,7 @@ const Model = (() => {
   const MAX_MINUTES = 600;
 
   return { TRACK_FIELDS, SCHEDULE_FIELDS, LOG_FIELDS, POINT_FIELDS, BREAK_FIELDS, WEEK_FIELDS, LINE_FIELDS, REWARD_FIELDS, MILESTONE_FIELDS,
-    STEP_FIELDS, TASK_FIELDS, DATE_FIELDS, TASK_STATUSES, TASK_KINDS, BIZ_ID, MODES, VARIANTS, VOICES, DAYS, POINT_TYPES, SETTING_KEYS,
+    STEP_FIELDS, TASK_FIELDS, DATE_FIELDS, PLAN_FIELDS, TASK_STATUSES, TASK_KINDS, BIZ_ID, MODES, VARIANTS, VOICES, DAYS, POINT_TYPES, SETTING_KEYS,
     ID, MAX_NOTE, MAX_MINUTES, MAX_BREAK_DAYS };
 })();
 

@@ -33,6 +33,7 @@ export const data = {
   /** @type {BizTask[]} */ tasks: [],
   /** @type {BizDate[]} */ dates: [],
   /** @type {Setting[]} */ facts: [],
+  /** @type {PlanRow[]} */ plans: [],
 };
 
 export const status = {
@@ -77,6 +78,7 @@ function take(rows) {
   data.tasks = rows.tasks ?? [];
   data.dates = rows.dates ?? [];
   data.facts = rows.facts ?? [];
+  data.plans = rows.plans ?? [];
 }
 
 /** Today on this phone, after the day cutoff (ADR-004): an entry at 01:30 counts for the evening before. */
@@ -125,7 +127,8 @@ async function run() {
     const pulled = /** @type {Pulled} */ (r.data);
     const rows = { settings: pulled.settings, rules: pulled.rules, tracks: pulled.tracks, schedule: pulled.schedule, logs: pulled.logs, points: pulled.points,
       breaks: pulled.breaks ?? [], weeks: pulled.weeks ?? [], lines: pulled.lines ?? [], rewards: pulled.rewards ?? [], milestones: pulled.milestones ?? [],
-      steps: pulled.steps ?? [], tasks: pulled.tasks ?? [], dates: pulled.dates ?? [], facts: pulled.facts ?? [] };
+      steps: pulled.steps ?? [], tasks: pulled.tasks ?? [], dates: pulled.dates ?? [], facts: pulled.facts ?? [],
+      plans: pulled.plans ?? [] };
     take(rows);
     data.balance = pulled.balance ?? 0;
     data.streaks = pulled.streaks ?? [];
@@ -307,6 +310,25 @@ export async function updateTask(taskId, action, note = null) {
     return r.ok ? { ok: true } : refuse(r.errors.map((e) => e.message).join('; '));
   } catch (e) {
     return refuse(isOffline(e) ? "You're offline: connect to update the task." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
+  }
+}
+
+/**
+ * Accepts this week's plan after the weekly review (4b). Online only.
+ * @param {string} weekStart @param {Array<{ date: string, task_id: string }>} items
+ * @returns {Promise<Saved>}
+ */
+export async function acceptPlan(weekStart, items) {
+  if (!navigator.onLine) return refuse("You're offline: connect to save the plan.");
+  try {
+    const r = await call('plan.accept', { week_start: weekStart, items });
+    if (!r.ok) return refuse(r.errors.map((e) => e.message).join('; '));
+    data.plans = r.data.plans;
+    await db.putRows({ plans: data.plans });
+    changed();
+    return { ok: true };
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: connect to save the plan." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
   }
 }
 

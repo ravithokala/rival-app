@@ -6,8 +6,9 @@ import { Schedule } from './schedule.js';
 
 /**
  * The business track's rules (Milestone 4; docs/PROJECT_BRIEF.md, Business track): which tasks are open and
- * ready, today's 1–3 within the business block's minutes, progress per step, dates at risk, the STATUS block
- * and the prompt for a normal Claude chat. Rule-based, no AI. Pure: the phone draws from its copy, the server
+ * ready, today's 1–3 within the business block's minutes, progress per step, dates at risk, the STATUS block,
+ * the prompt for a normal Claude chat, and the weekly coach (4b): last week, the proposed plan, Today following
+ * the accepted plan, and the restart rule after missed days. Rule-based, no AI. Pure: the phone draws from its copy, the server
  * applies the same rules.
  *
  * Shared with the phone app: scripts/sync-shared.js copies this file to pwa/shared/.
@@ -142,7 +143,115 @@ const Business = (() => {
     ].filter((line, i, all) => line !== '' || (all[i - 1] !== '' && i > 0)).join('\n');
   }
 
-  return { byId, ordered, finished, depsDone, available, today, budgetOn, stepProgress, stepComplete, atRisk, statusBlock, helpPrompt };
+  /** The live rows of a week's accepted plan, by date. @param {PlanRow[]} plans @param {string} weekStart */
+  const planOf = (plans, weekStart) => (plans ?? []).filter((p) => !p.deleted && p.week_start === weekStart).sort((a, b) => (a.date < b.date ? -1 : 1));
+
+  /** Whether this week's review is still to do: the seed is loaded and no plan was accepted. @param {BizTask[]} tasks @param {PlanRow[]} plans @param {string} day */
+  const reviewDue = (tasks, plans, day) => tasks.some((t) => t.status !== 'retired') && planOf(plans, Dates.weekStart(day)).length === 0;
+
+  /** Whether a task was finished within a week (done that week, or a weekly repeat closed that week). @param {BizTask} t @param {string} weekStart */
+  const doneIn = (t, weekStart) => (t.repeat === 'weekly' ? t.closed_week === weekStart
+    : t.status === 'done' && Boolean(t.done_on) && /** @type {string} */ (t.done_on) >= weekStart && /** @type {string} */ (t.done_on) <= Dates.addDays(weekStart, 6));
+
+  /**
+   * Last week, for the Monday review (4b): done, slipped (planned but not finished) and blocked now.
+   * @param {BizTask[]} tasks @param {Step[]} steps @param {PlanRow[]} plans @param {string} day
+   */
+  function lastWeek(tasks, steps, plans, day) {
+    const last = Dates.addDays(Dates.weekStart(day), -7);
+    const sorted = ordered(tasks.filter((t) => t.status !== 'retired'), steps);
+    const planned = new Set(planOf(plans, last).map((p) => p.task_id));
+    return {
+      weekStart: last,
+      done: sorted.filter((t) => doneIn(t, last)),
+      slipped: sorted.filter((t) => planned.has(t.task_id) && !doneIn(t, last) && t.status !== 'done'),
+      blocked: sorted.filter((t) => t.status === 'blocked'),
+    };
+  }
+
+  /**
+   * This week's proposed plan: one task per weekday from today (Mon–Fri), five at most. Outreach first once any is
+   * ready, then last week's slipped tasks, then those in progress, then the plan's order (4b).
+   * @param {BizTask[]} tasks @param {Step[]} steps @param {PlanRow[]} plans @param {string} day
+   * @returns {Array<{ date: string, task: BizTask }>}
+   */
+  function propose(tasks, steps, plans, day) {
+    const weekStart = Dates.weekStart(day);
+    const ready = ordered(available(tasks, weekStart), steps);
+    const slipped = new Set(lastWeek(tasks, steps, plans, day).slipped.map((t) => t.task_id));
+    const firstOutreach = ready.find((t) => t.kind === 'outreach');
+    const queue = [
+      ...(firstOutreach ? [firstOutreach] : []),
+      ...ready.filter((t) => slipped.has(t.task_id)),
+      ...ready.filter((t) => t.status === 'in_progress'),
+      ...ready,
+    ];
+    const seen = new Set();
+    const picks = queue.filter((t) => !seen.has(t.task_id) && seen.add(t.task_id));
+    const days = [];
+    for (let d = day > weekStart ? day : weekStart; d <= Dates.addDays(weekStart, 4); d = Dates.addDays(d, 1)) days.push(d);
+    return days.slice(0, 5).map((date, i) => ({ date, task: picks[i] })).filter((x) => Boolean(x.task));
+  }
+
+  /**
+   * Today's tasks with the accepted plan (4b): the task planned for today first, then planned tasks left from earlier
+   * days this week ("carried"), then whatever else is ready and still fits the minutes. Without a plan: today().
+   * @param {BizTask[]} tasks @param {Step[]} steps @param {PlanRow[]} plans @param {number} budget @param {string} day @param {string[]} [skipped]
+   * @returns {Array<{ task: BizTask, overBudget: boolean, planned: 'today'|'carried'|null, from: string|null }>}
+   */
+  function todayPlanned(tasks, steps, plans, budget, day, skipped = []) {
+    if (budget <= 0) return [];
+    const weekStart = Dates.weekStart(day);
+    const byId = new Map(tasks.map((t) => [t.task_id, t]));
+    const rows = planOf(plans, weekStart).filter((p) => p.date <= day);
+    /** @type {Array<{ task: BizTask, overBudget: boolean, planned: 'today'|'carried'|null, from: string|null }>} */
+    const out = [];
+    for (const p of [...rows.filter((r) => r.date === day), ...rows.filter((r) => r.date < day)]) {
+      const t = byId.get(p.task_id);
+      if (!t || finished(t, weekStart) || skipped.includes(t.task_id) || out.some((o) => o.task.task_id === t.task_id) || out.length >= 3) continue;
+      out.push({ task: t, overBudget: out.length === 0 && (t.estimate_min ?? 0) > budget, planned: p.date === day ? 'today' : 'carried', from: p.date === day ? null : p.date });
+    }
+    let used = out.reduce((m, o) => m + (o.task.estimate_min ?? 0), 0);
+    for (const extra of today(tasks, steps, budget, weekStart, [...skipped, ...out.map((o) => o.task.task_id)])) {
+      if (out.length >= 3) break;
+      const est = extra.task.estimate_min ?? 0;
+      if (out.length === 0) { out.push({ ...extra, planned: null, from: null }); used = est; continue; }
+      if (used + est > budget) continue;
+      out.push({ task: extra.task, overBudget: false, planned: null, from: null });
+      used += est;
+    }
+    return out;
+  }
+
+  /**
+   * Business days missed in a row before today (4b, the restart rule): a day with a business block due (not on a
+   * break) where the block was not logged as done or minimum and no task was finished. Break days are skipped.
+   * @param {PlanData} data @param {BizTask[]} tasks @param {string} day
+   */
+  function missedInARow(data, tasks, day) {
+    const start = Dates.isValid(data.settings.start_date) ? /** @type {string} */ (data.settings.start_date) : null;
+    if (!start) return 0;
+    let n = 0;
+    for (let d = Dates.addDays(day, -1); d >= start && Dates.daysBetween(d, day) <= 14; d = Dates.addDays(d, -1)) {
+      const due = Schedule.activeItems(data, d).filter((i) => i.track_id === 'business' && Schedule.dueOn(i, d));
+      if (!due.length) continue;
+      const worked = data.logs.some((l) => l.date === d && due.some((i) => i.schedule_id === l.schedule_id) && Schedule.isDone(l))
+        || tasks.some((t) => t.done_on === d);
+      if (worked) break;
+      n += 1;
+    }
+    return n;
+  }
+
+  /** The one restart task after missed days: the smallest ready one of 15 minutes or less, else the one in progress, else the smallest. @param {BizTask[]} tasks @param {Step[]} steps @param {string} weekStart */
+  function restartTask(tasks, steps, weekStart) {
+    const ready = ordered(available(tasks, weekStart), steps);
+    const bySize = [...ready].sort((a, b) => (a.estimate_min ?? 0) - (b.estimate_min ?? 0));
+    return bySize.find((t) => (t.estimate_min ?? 0) <= 15) ?? ready.find((t) => t.status === 'in_progress') ?? bySize[0] ?? null;
+  }
+
+  return { byId, ordered, finished, depsDone, available, today, budgetOn, stepProgress, stepComplete, atRisk, statusBlock, helpPrompt,
+    planOf, reviewDue, doneIn, lastWeek, propose, todayPlanned, missedInARow, restartTask };
 })();
 
 export { Business };
