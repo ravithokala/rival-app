@@ -2,7 +2,7 @@
 
 import { el, uk } from '../dom.js';
 import { VERSION } from '../version.js';
-import { status, data, saveSetting, exportAll, today } from '../store/store.js';
+import { status, data, saveSetting, saveBreak, exportAll, today } from '../store/store.js';
 import { Schedule } from '../shared/schedule.js';
 import { Dates } from '../shared/dates.js';
 import { toast } from './sheet.js';
@@ -26,6 +26,7 @@ export function settings(main, actions) {
   main.replaceChildren(
     el('h1', { class: 'screen-title' }, 'Settings'),
     planSection(() => settings(main, actions)),
+    breaksSection(),
     el('section', { class: 'card' },
       el('h2', {}, 'Data'),
       el('p', {}, status.online ? 'Your Google Sheet is the main copy; this phone keeps a copy for quick opening.' : 'Offline: you can view everything; saving needs a connection.'),
@@ -126,4 +127,46 @@ async function download() {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(link.href), 10000);
   toast('Export downloaded.');
+}
+
+/**
+ * Breaks (ADR-018): holidays and family visits, planned ahead or set this week if forgotten; a partial
+ * break keeps chosen tracks on. Lists the running and planned breaks, and this month's break days.
+ */
+function breaksSection() {
+  const day = today();
+  const from = /** @type {HTMLInputElement} */ (el('input', { type: 'date', value: day, min: Dates.weekStart(day), 'aria-label': 'First day of the break' }));
+  const to = /** @type {HTMLInputElement} */ (el('input', { type: 'date', value: Dates.addDays(day, 6), min: Dates.weekStart(day), 'aria-label': 'Last day of the break' }));
+  const note = /** @type {HTMLInputElement} */ (el('input', { type: 'text', maxlength: '100', placeholder: 'e.g. Family visit (optional)', 'aria-label': 'Note' }));
+  const keeps = data.tracks.filter((t) => !t.paused).map((t) => /** @type {HTMLInputElement} */ (el('input', { type: 'checkbox', value: t.track_id })));
+  const thisMonth = Schedule.breakDays(data.breaks, `${day.slice(0, 8)}01`, day);
+  const upcoming = data.breaks.filter((b) => !b.deleted && b.to >= day).sort((a, b) => (a.from < b.from ? -1 : 1));
+  const span = (/** @type {Break} */ b) => (b.from === b.to ? Dates.shortDay(b.from) : `${Dates.shortDay(b.from)} – ${Dates.shortDay(b.to)}`);
+  const names = (/** @type {Break} */ b) => data.tracks.filter((t) => b.keep_tracks.includes(t.track_id)).map((t) => t.name);
+  return el('section', { class: 'card', id: 'breaks' },
+    el('h2', {}, 'Breaks'),
+    el('p', { class: 'muted small' }, 'Holidays, family visits, days off: nothing is expected on a break, and nothing is missed.',
+      thisMonth ? ` Break days this month: ${thisMonth}.` : ''),
+    upcoming.length ? el('ul', { class: 'plain-rows' }, upcoming.map((b) => {
+      const running = b.from <= day;
+      return el('li', { class: 'break-row' },
+        el('div', {}, el('div', { class: 'check-name' }, span(b)),
+          el('div', { class: 'muted small' }, [running ? 'Now' : 'Planned', names(b).length ? `keeping ${names(b).join(', ')}` : 'everything paused', b.note ?? ''].filter(Boolean).join(' · '))),
+        el('button', { class: 'button', type: 'button', onclick: async () => {
+          const r = await saveBreak({ action: running && b.from < day ? 'end' : 'remove', break_id: b.break_id });
+          toast(r.ok ? (running ? 'Welcome back.' : 'Break removed.') : r.message);
+        } }, running ? "I'm back" : 'Remove'));
+    })) : '',
+    el('h3', { class: 'check-group' }, 'Take a break'),
+    el('div', { class: 'row2' }, el('label', { class: 'field' }, 'From', from), el('label', { class: 'field' }, 'To', to)),
+    el('p', { class: 'muted small' }, 'Keep these going (optional):'),
+    el('div', { class: 'keep-list' }, keeps.map((box, i) => el('label', { class: 'keep' }, box, ` ${data.tracks.filter((t) => !t.paused)[i].name}`))),
+    el('label', { class: 'field' }, 'Note', note),
+    el('div', { class: 'actions start' }, el('button', { class: 'button primary', type: 'button', onclick: async (/** @type {Event} */ ev) => {
+      const button = /** @type {HTMLButtonElement} */ (ev.currentTarget);
+      button.disabled = true;
+      const r = await saveBreak({ action: 'add', from: from.value, to: to.value, keep_tracks: keeps.filter((k) => k.checked).map((k) => k.value), note: note.value || null });
+      button.disabled = false;
+      toast(r.ok ? 'Break saved.' : r.message);
+    } }, 'Save break')));
 }

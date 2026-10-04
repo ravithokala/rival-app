@@ -1,7 +1,7 @@
 // @ts-check
 
 import { el } from '../dom.js';
-import { data, saveLog, today } from '../store/store.js';
+import { data, saveLog, saveBreak, today } from '../store/store.js';
 import { Schedule } from '../shared/schedule.js';
 import { Points } from '../shared/points.js';
 import { Dates } from '../shared/dates.js';
@@ -11,7 +11,8 @@ import { rivalName } from './placeholders.js';
 /**
  * Today (docs/PROJECT_BRIEF.md, Screens): up to 3 habit cards with Done / Minimum / Skip in one tap, the
  * "This week" row for weekly and stretch items, the earlier days of this week still to log (ADR-004),
- * this week's points, and when locked tracks open. Drawn from the phone's copy with the server's own
+ * this week's points, when locked tracks open, and breaks (ADR-018): on a break, Today says so and offers
+ * "I'm back"; the day after, minimum versions lead; otherwise "Rest today" is one tap away. Drawn from the phone's copy with the server's own
  * rules (shared/schedule.js), so it opens at once and offline; logging needs a connection.
  */
 
@@ -79,8 +80,12 @@ function changeSheet(item, log) {
   const sheet = openSheet(`${item.label} · ${Dates.shortDay(log.date)}`, body);
 }
 
-/** One habit card: what it is, then the three buttons, or what was logged with Undo and Change. @param {import('../shared/schedule.js').Card} card */
-function habitCard(card) {
+/**
+ * One habit card: what it is, then the three buttons, or what was logged with Undo and Change. After a
+ * break the Minimum button leads (ADR-018).
+ * @param {import('../shared/schedule.js').Card} card @param {boolean} [easy]
+ */
+function habitCard(card, easy = false) {
   const { item, log } = card;
   const box = el('section', { class: `card habit${log ? ' logged' : ''}` });
   const minutes = (/** @type {number|null} */ m) => (m === null || m === undefined ? '' : `${m} min`);
@@ -98,9 +103,9 @@ function habitCard(card) {
   box.append(
     el('div', { class: 'habit-head' }, el('h2', {}, item.label, tag), el('span', { class: 'muted small' }, minutes(item.full_minutes))),
     el('div', { class: 'actions three' },
-      el('button', { class: 'primary', type: 'button', onclick: go('full') }, 'Done', el('span', { class: 'worth' }, `+${worth(item, 'full')}`)),
+      el('button', { class: easy && item.min_minutes !== null ? '' : 'primary', type: 'button', onclick: go('full') }, 'Done', el('span', { class: 'worth' }, `+${worth(item, 'full')}`)),
       item.min_minutes !== null
-        ? el('button', { type: 'button', onclick: go('minimum') }, 'Minimum', el('span', { class: 'worth' }, `${item.min_minutes} min · +${worth(item, 'minimum')}`))
+        ? el('button', { class: easy ? 'primary' : '', type: 'button', onclick: go('minimum') }, 'Minimum', el('span', { class: 'worth' }, `${item.min_minutes} min · +${worth(item, 'minimum')}`))
         : '',
       el('button', { type: 'button', onclick: go('skipped') }, 'Skip')));
   return box;
@@ -128,7 +133,7 @@ export function todayScreen(main) {
         'aria-label': `${w.item.label}: ${w.done} of ${w.target} this week${w.item.mode === 'stretch' ? ', stretch' : ''}. Tap to log one today.`,
         onclick: () => send(chip, { schedule_id: w.item.schedule_id, date: day, variant: 'full' }, w.item.label),
         disabled: Boolean(w.todayLog) },
-      `${w.item.label} ${w.done}/${w.target}`, w.item.mode === 'stretch' ? ' ✦' : '', w.urgent ? ' · due' : '');
+      `${w.item.label} ${w.done}/${w.target}`, w.item.mode === 'stretch' ? ' ✦' : '', w.urgent ? ' · due' : '', w.waived && !done ? ' · break week' : '');
       return chip;
     })),
     el('p', { class: 'muted small' }, 'Tap one to log it for today. ✦ stretch: a bonus if you do it, nothing lost if not.')) : '';
@@ -148,15 +153,43 @@ export function todayScreen(main) {
     })),
     el('p', { class: 'muted small' }, 'You can log any day of this week until it closes on Sunday night.')) : '';
 
+  const brk = plan.onBreak;
+  const kept = brk ? data.tracks.filter((t) => brk.keep_tracks.includes(t.track_id)).map((t) => t.name) : [];
+  const breakCard = brk ? el('section', { class: 'card break-card' },
+    el('h2', {}, brk.from === brk.to ? 'Resting today' : `On a break until ${Dates.shortDay(brk.to)}`),
+    el('p', {}, kept.length ? `Keeping: ${kept.join(', ')}. Everything else waits. Enjoy it.` : 'Nothing is expected. Enjoy it.'),
+    brk.note ? el('p', { class: 'muted small' }, brk.note) : '',
+    el('div', { class: 'actions start' }, el('button', { class: 'button', type: 'button', onclick: async () => {
+      const r = await saveBreak({ action: brk.from < day ? 'end' : 'remove', break_id: brk.break_id });
+      toast(r.ok ? 'Welcome back.' : r.message);
+    } }, "I'm back"))) : '';
+  const welcome = plan.welcomeBack ? el('section', { class: 'card welcome' },
+    el('h2', {}, 'Welcome back'), el('p', { class: 'muted small' }, 'Minimum versions are plenty today: easy does it.')) : '';
+
   main.replaceChildren(
     el('div', { class: 'today-head' }, el('h1', { class: 'screen-title' }, 'Today'),
       el('span', { class: 'muted small' }, `${Dates.shortDay(day)} · Week ${week.number}`)),
-    rivalCard(name, `You: ${earned} point${earned === 1 ? '' : 's'} this week. My score arrives in Milestone 3.`),
-    ...(plan.cards.length ? plan.cards.map(habitCard) : [el('section', { class: 'card' }, el('p', { class: 'muted' }, 'Nothing scheduled today.'))]),
+    rivalCard(name, brk ? "I'm resting too. See you when you're back." : `You: ${earned} point${earned === 1 ? '' : 's'} this week. My score arrives in Milestone 3.`),
+    breakCard,
+    welcome,
+    ...(plan.cards.length ? plan.cards.map((c) => habitCard(c, plan.welcomeBack))
+      : brk ? [] : [el('section', { class: 'card' }, el('p', { class: 'muted' }, 'Nothing scheduled today.'))]),
     weekRow,
     catchUp,
     plan.locked.length ? el('p', { class: 'muted small locked' },
-      plan.locked.map((l) => `${l.track.name} unlocks in ${l.inWeeks} week${l.inWeeks === 1 ? '' : 's'}`).join(' · '), ' (or early, in Settings)') : '');
+      plan.locked.map((l) => `${l.track.name} unlocks in ${l.inWeeks} week${l.inWeeks === 1 ? '' : 's'}`).join(' · '), ' (or early, in Settings)') : '',
+    el('div', { class: 'today-foot' },
+      // Unplanned days off: a one-day break, one tap, with Undo (ADR-018). Longer breaks: Settings → Breaks.
+      brk ? '' : el('button', { class: 'link', type: 'button', onclick: async (/** @type {Event} */ ev) => {
+        const button = /** @type {HTMLButtonElement} */ (ev.currentTarget);
+        button.disabled = true;
+        const r = await saveBreak({ action: 'add', from: day, to: day });
+        button.disabled = false;
+        if (!r.ok) { toast(r.message); return; }
+        const rest = data.breaks.find((b) => !b.deleted && b.from === day && b.to === day);
+        toast('Rest day: nothing is expected today.', [], rest ? () => { saveBreak({ action: 'remove', break_id: rest.break_id }).then((u) => { if (!u.ok) toast(u.message); }); } : undefined);
+      } }, 'Rest today'),
+      plan.breakDaysThisMonth ? el('span', { class: 'muted small' }, `Break days this month: ${plan.breakDaysThisMonth}`) : ''));
 }
 
 /** The Rival's card: avatar, name, one line. @param {string} name @param {string} line */

@@ -21,6 +21,7 @@ export const data = {
   /** @type {ScheduleItem[]} */ schedule: [],
   /** @type {LogEntry[]} */ logs: [],
   /** @type {PointEntry[]} */ points: [],
+  /** @type {Break[]} */ breaks: [],
 };
 
 export const status = {
@@ -56,6 +57,7 @@ function take(rows) {
   data.schedule = rows.schedule ?? [];
   data.logs = rows.logs ?? [];
   data.points = rows.points ?? [];
+  data.breaks = rows.breaks ?? [];
 }
 
 /** Today on this phone, after the day cutoff (ADR-004): an entry at 01:30 counts for the evening before. */
@@ -100,7 +102,8 @@ async function run() {
     const r = await call('sync.pull', { since: status.since });
     if (!r.ok) throw new Error(r.errors.map((e) => e.message).join('; '));
     const pulled = /** @type {Pulled} */ (r.data);
-    const rows = { settings: pulled.settings, rules: pulled.rules, tracks: pulled.tracks, schedule: pulled.schedule, logs: pulled.logs, points: pulled.points };
+    const rows = { settings: pulled.settings, rules: pulled.rules, tracks: pulled.tracks, schedule: pulled.schedule, logs: pulled.logs, points: pulled.points,
+      breaks: pulled.breaks ?? [] };
     take(rows);
     await db.replaceRows(rows);
     Object.assign(status, { since: pulled.server_time, user: pulled.user, sheetUrl: pulled.sheet_url, lastSynced: Date.now(), error: null, online: true, timing: { ...lastTiming } });
@@ -181,6 +184,30 @@ export async function saveSetting(key, value) {
     return { ok: true };
   } catch (e) {
     return refuse(isOffline(e) ? "You're offline: connect to change settings." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
+  }
+}
+
+/**
+ * Adds a break, ends one ("I'm back") or removes one (ADR-018). Online only.
+ * @param {{ action: 'add', from: string, to: string, keep_tracks?: string[], note?: string|null } | { action: 'end'|'remove', break_id: string }} change
+ * @returns {Promise<Saved>}
+ */
+export async function saveBreak(change) {
+  if (!navigator.onLine) return refuse("You're offline: connect to set a break.");
+  const current = 'break_id' in change ? data.breaks.find((b) => b.break_id === change.break_id) : null;
+  try {
+    const r = await call('break.save', current ? { ...change, base_version: current.version } : change);
+    if (!r.ok) {
+      if (r.errors[0]?.code === 'CONFLICT') refresh().catch(() => { /* shown in the header */ });
+      return refuse(r.errors.map((e) => e.message).join('; '));
+    }
+    const saved = /** @type {Break} */ (r.data.break);
+    data.breaks = [...data.breaks.filter((b) => b.break_id !== saved.break_id), saved];
+    await db.putRows({ breaks: [saved] });
+    changed();
+    return { ok: true };
+  } catch (e) {
+    return refuse(isOffline(e) ? "You're offline: connect to set a break." : `${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
   }
 }
 

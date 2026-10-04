@@ -16,6 +16,8 @@ const Model = (() => {
   const LOG_FIELDS = Object.freeze(['log_id', 'date', 'schedule_id', 'track_id', 'variant', 'minutes', 'note', 'deleted', 'version',
     'updated_at']);
   const POINT_FIELDS = Object.freeze(['point_id', 'date', 'type', 'amount', 'reason', 'log_id', 'deleted', 'version', 'updated_at']);
+  /** A break (ADR-018): from–to inclusive; keep_tracks stay on (a partial break); none kept: everything pauses. */
+  const BREAK_FIELDS = Object.freeze(['break_id', 'from', 'to', 'keep_tracks', 'note', 'deleted', 'version', 'updated_at']);
 
   /** fixed: tied to weekdays; weekly: N times a week, any day; stretch: if possible, no penalty (ADR-008). */
   const MODES = Object.freeze(['fixed', 'weekly', 'stretch']);
@@ -29,11 +31,13 @@ const Model = (() => {
   const SETTING_KEYS = Object.freeze(['rival_name', 'start_date', 'unlocked_tracks']);
 
   const ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
+  /** The longest break, in days. */
+  const MAX_BREAK_DAYS = 90;
   const MAX_NOTE = 500;
   const MAX_MINUTES = 600;
 
-  return { TRACK_FIELDS, SCHEDULE_FIELDS, LOG_FIELDS, POINT_FIELDS, MODES, VARIANTS, VOICES, DAYS, POINT_TYPES, SETTING_KEYS,
-    ID, MAX_NOTE, MAX_MINUTES };
+  return { TRACK_FIELDS, SCHEDULE_FIELDS, LOG_FIELDS, POINT_FIELDS, BREAK_FIELDS, MODES, VARIANTS, VOICES, DAYS, POINT_TYPES, SETTING_KEYS,
+    ID, MAX_NOTE, MAX_MINUTES, MAX_BREAK_DAYS };
 })();
 
 export { Model };
