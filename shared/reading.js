@@ -29,6 +29,17 @@ const Reading = (() => {
   const finished = (books) => books.filter((b) => !b.deleted && b.status === 'finished')
     .sort((a, b) => ((a.finished ?? '') < (b.finished ?? '') ? 1 : -1));
 
+  /**
+   * What a check-in covers: from the chapter after the book's previous check-in up to its own ("Ch 1–9"), or one
+   * chapter ("Ch 10"). A check-in is per reading session, so it may cover several short chapters.
+   * @param {Chapter[]} chapters @param {Chapter} c
+   */
+  function span(chapters, c) {
+    const to = c.chapter ?? 0;
+    const from = checkIns(chapters, c.book_id).reduce((m, x) => ((x.chapter ?? 0) < to ? Math.max(m, x.chapter ?? 0) : m), 0) + 1;
+    return from < to ? `Ch ${from}–${to}` : `Ch ${to}`;
+  }
+
   /** The chapter a new check-in is for: one after the highest so far. @param {Chapter[]} chapters @param {string} bookId */
   const nextChapter = (chapters, bookId) => checkIns(chapters, bookId).reduce((m, c) => Math.max(m, c.chapter ?? 0), 0) + 1;
 
@@ -54,7 +65,7 @@ const Reading = (() => {
     return [pool[at], pool[(at + step) % pool.length]];
   }
 
-  return { PER_CHECK_IN, checkIns, current, finished, nextChapter, questionsFor };
+  return { PER_CHECK_IN, checkIns, current, finished, span, nextChapter, questionsFor };
 })();
 
 export { Reading };
