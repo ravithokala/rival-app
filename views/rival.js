@@ -50,6 +50,8 @@ function situations(plan, s, day) {
   const urgent = open.find((w) => w.urgent);
   const eve = new Date().getHours() >= 18 ? open.find((w) => w.item.mode === 'weekly' && !w.waived && w.item.days.includes(tomorrow)) : undefined;
   const stretch = dow >= 4 ? open.find((w) => w.item.mode === 'stretch') : undefined;
+  // Friday, Saturday and Sunday after 20:00, when tomorrow asks about an early night (ADR-024).
+  const early = new Date().getHours() >= 20 && Schedule.activeItems(data, Dates.addDays(day, 1)).some((i) => i.track_id === 'sleep' && Schedule.dueOn(i, Dates.addDays(day, 1)));
   // After 20:00 with Reading due and not done yet (5a).
   const reading = new Date().getHours() >= 20 ? Schedule.activeItems(data, day).find((i) => i.track_id === 'reading' && Schedule.dueOn(i, day)
     && !data.logs.some((l) => l.schedule_id === i.schedule_id && l.date === day && Schedule.isDone(l))) : undefined;
@@ -65,6 +67,7 @@ function situations(plan, s, day) {
     urgent ? 'week-ending' : '',
     eve ? 'eve' : '',
     reading ? 'reading' : '',
+    early ? 'early-night' : '',
     stretch ? 'stretch' : '',
     s.me < s.rival ? 'behind' : '',
     s.me > s.rival ? 'ahead' : '',
@@ -72,7 +75,7 @@ function situations(plan, s, day) {
   ].filter(Boolean);
   const activity = (urgent ?? eve ?? stretch)?.item.label ?? '';
   return { list, vars: { name: rivalName(), me: s.me, rival: s.rival, gap: Math.abs(s.me - s.rival), activity, title: fresh?.title ?? '',
-    days_left: Dates.daysBetween(day, week.end) + 1, day: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dow] } };
+    time: data.rules.early_night_time || '22:00', days_left: Dates.daysBetween(day, week.end) + 1, day: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dow] } };
 }
 
 /**

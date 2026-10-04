@@ -178,7 +178,7 @@ export function todayScreen(main) {
       : brk ? [] : [el('section', { class: 'card' }, el('p', { class: 'muted' }, 'Nothing scheduled today.'))]),
     reviewBanner(day),
     businessToday(day),
-    tvFree(plan),
+    ...extraCards(plan),
     weekRow,
     catchUp,
     plan.locked.length ? el('p', { class: 'muted small locked' },
@@ -205,21 +205,28 @@ function rivalCard(name, line) {
 }
 
 /**
- * The TV-free evening (3b): a toggle from 18:00 (or once logged), 10 points, +5 if a habit was done today.
- * Not a habit card: it never takes one of the 3 slots, and nothing is missed without it.
+ * The bonus toggles due today, outside the 3 habit cards; nothing is missed without them. The TV-free evening (3b): from
+ * 18:00 (or once logged), 10 points, +5 if a habit was done today. An early night (ADR-024): on Saturday, Sunday and
+ * Monday mornings, "Early night last night?", all day, 10 points, counted for that morning.
  * @param {import('../shared/schedule.js').Plan} plan
  */
-function tvFree(plan) {
-  const extra = plan.extras[0];
-  if (!extra || (!extra.log && new Date().getHours() < 18)) return '';
-  const on = Boolean(extra.log && extra.log.variant === 'full');
-  const earned = extra.log ? pointsOf(extra.log) : 0;
-  const box = el('section', { class: 'card tv-free' });
-  box.append(
-    el('div', { class: 'tv-text' }, el('h2', {}, extra.item.label),
-      el('p', { class: 'muted small' }, on ? `+${earned} points. Enjoy the quiet.` : `+${Points.num(data.rules[`points_${extra.item.track_id}`])}, and +${Points.num(data.rules.tv_swap_bonus)} more if you did a habit today.`)),
-    el('button', { class: `switch${on ? ' on' : ''}`, type: 'button', role: 'switch', 'aria-checked': String(on), 'aria-label': extra.item.label,
-      onclick: () => send(box, on ? { schedule_id: extra.item.schedule_id, date: extra.date, undo: true } : { schedule_id: extra.item.schedule_id, date: extra.date, variant: 'full' }, on ? undefined : extra.item.label) },
-    el('span', { class: 'knob' })));
-  return box;
+function extraCards(plan) {
+  return plan.extras.map((extra) => {
+    const tv = extra.item.track_id === 'evening';
+    if (tv && !extra.log && new Date().getHours() < 18) return '';
+    const on = Boolean(extra.log && extra.log.variant === 'full');
+    const earned = extra.log ? pointsOf(extra.log) : 0;
+    const worth = Points.num(data.rules[`points_${extra.item.track_id}`]);
+    const title = tv ? extra.item.label : `${extra.item.label} last night?`;
+    const text = tv
+      ? (on ? `+${earned} points. Enjoy the quiet.` : `+${worth}, and +${Points.num(data.rules.tv_swap_bonus)} more if you did a habit today.`)
+      : (on ? `+${earned} points. Well rested.` : `In bed by ${data.rules.early_night_time || '22:00'} · +${worth}`);
+    const box = el('section', { class: `card extra ${extra.item.schedule_id}` });
+    box.append(
+      el('div', { class: 'extra-text' }, el('h2', {}, title), el('p', { class: 'muted small' }, text)),
+      el('button', { class: `switch${on ? ' on' : ''}`, type: 'button', role: 'switch', 'aria-checked': String(on), 'aria-label': title,
+        onclick: () => send(box, on ? { schedule_id: extra.item.schedule_id, date: extra.date, undo: true } : { schedule_id: extra.item.schedule_id, date: extra.date, variant: 'full' }, on ? undefined : extra.item.label) },
+      el('span', { class: 'knob' })));
+    return box;
+  });
 }

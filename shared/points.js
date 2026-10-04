@@ -5,8 +5,8 @@
 /**
  * Points for a log (ADR-009): the full version earns the track's points, a minimum version the minimum,
  * a stretch item (the ride) a bonus on top, a skip nothing. A weekly or stretch item earns nothing beyond
- * its weekly target plus the extras cap (ADR-008). The TV-free evening (an extra) earns its points, plus the
- * swap bonus when a habit was done that day. Values come from the Rules tab.
+ * its weekly target plus the extras cap (ADR-008). An extra (the TV-free evening, an early night) earns its track's
+ * points; the TV-free evening also earns the swap bonus when a habit was done that day. Values come from the Rules tab.
  *
  * Shared with the phone app: scripts/sync-shared.js copies this file to pwa/shared/.
  */
@@ -25,7 +25,7 @@ const Points = (() => {
   function forLog(variant, item, rules, doneEarlierThisWeek, habitsDoneToday = 0) {
     if (variant === 'skipped') return { amount: 0, reason: `${item.label} skipped` };
     if (item.extra) {
-      const swap = habitsDoneToday > 0 ? num(rules.tv_swap_bonus) : 0;
+      const swap = item.track_id === 'evening' && habitsDoneToday > 0 ? num(rules.tv_swap_bonus) : 0;
       return { amount: num(rules[`points_${item.track_id}`]) + swap, reason: swap ? `${item.label} (+ swap bonus)` : item.label };
     }
     if (item.mode !== 'fixed' && doneEarlierThisWeek >= (item.times_per_week ?? 1) + num(rules.extras_cap)) {
