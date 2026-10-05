@@ -10,8 +10,8 @@
  * - SHELL: every file of the app (tests/pwa.test.js checks it).
  * - LEGACY: names of older saved copies to delete (none for this app; kept as the other apps have it).
  */
-const VERSION = 'shell-21da520-fed077b2504d';
-const SHELL = ['./', 'index.html', 'app.js', 'api.js', 'request.js', 'auth.js', 'update.js', 'freshness.js', 'guard.js', 'checks.js', 'install.js', 'config.js', 'dom.js', 'theme.js', 'theme-boot.js', 'version.js', 'styles.css',
+const VERSION = 'shell-bad9152-d8fcbf2d1b2e';
+const SHELL = ['./', 'index.html', 'app.js', 'api.js', 'request.js', 'auth.js', 'update.js', 'freshness.js', 'guard.js', 'checks.js', 'install.js', 'problems.js', 'config.js', 'dom.js', 'theme.js', 'theme-boot.js', 'version.js', 'styles.css',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
   'shared/dates.js', 'shared/model.js', 'shared/schedule.js', 'shared/points.js', 'shared/rival.js', 'shared/business.js', 'shared/reading.js', 'shared/challenges.js', 'store/db.js', 'store/store.js',
   'views/sheet.js', 'views/screens.js', 'views/today.js', 'views/rival.js', 'views/showdown.js', 'views/progress.js', 'views/business.js', 'views/review.js', 'views/reading.js', 'views/settings.js', 'views/system.js'];

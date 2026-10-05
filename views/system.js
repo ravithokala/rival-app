@@ -12,7 +12,7 @@ import { status } from '../store/store.js';
  * only, so it survives Settings redrawing but not a reload.
  * When a change adds something the app depends on, add a line for it (here or on the server).
  *
- * @typedef {{ name: string, ok: boolean, detail: string }} CheckLine
+ * @typedef {{ name: string, ok: boolean, detail: string, items?: string[] }} CheckLine  items: a short list under the line
  * @typedef {{ server: CheckLine[] | null, serverProblem: string | null, phone: CheckLine[], ms: number | null }} Report
  */
 
@@ -37,7 +37,8 @@ async function thisPhone() {
   lines.push(status.error ? { name: 'Updates', ok: false, detail: `The last update from the sheet failed${when ? ` · last good one ${when}` : ''}` }
     : { name: 'Updates', ok: when !== null, detail: when ? `Last updated from the sheet ${when}` : 'Not updated from the sheet yet' });
 
-  lines.push(shared.offline, shared.storage);
+  // The last failed requests (app-kit's problems.js), so a "Not updated" spell can be looked at afterwards.
+  lines.push(shared.offline, shared.storage, shared.problems);
   return lines;
 }
 
@@ -57,7 +58,8 @@ export function systemSection() {
     /** @param {string} title @param {CheckLine[]} lines */
     const list = (title, lines) => [el('h3', { class: 'check-group' }, title), el('ul', { class: 'checks' }, lines.map((c) => el('li', { class: c.ok ? 'check ok' : 'check fail' },
       el('span', { class: 'check-mark', 'aria-label': c.ok ? 'Passed' : 'Failed' }, c.ok ? '✓' : '✕'),
-      el('div', {}, el('div', { class: 'check-name' }, c.name), el('div', { class: 'check-detail' }, c.detail)))))];
+      el('div', {}, el('div', { class: 'check-name' }, c.name), el('div', { class: 'check-detail' }, c.detail),
+        c.items?.length ? el('ul', { class: 'check-items' }, c.items.map((i) => el('li', {}, i))) : ''))))];
     section.replaceChildren(
       el('h2', {}, 'System check'),
       el('p', { class: `muted small${failed ? ' danger-text' : ''}`, role: 'status' }, statusText),

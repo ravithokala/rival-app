@@ -267,6 +267,7 @@ li:first-child > .book-done { border-top: 0; }
 .check.fail .check-mark { background: var(--bad-bg); color: var(--bad); }
 .check-name { font-weight: 600; }
 .check-detail { font-size: 14px; color: var(--muted); overflow-wrap: anywhere; }
+.check-items { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .msg { margin-top: 6px; padding: 8px 10px; border-radius: 8px; font-size: 14px; }
 .msg.error { background: var(--bad-bg); color: var(--bad); }
 .msg.warning { background: var(--soft); color: var(--text); }
