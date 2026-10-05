@@ -52,7 +52,7 @@ export const status = {
   refreshing: false,
   /** Why the last refresh failed, if it did (not when simply offline). */
   error: /** @type {string|null} */ (null),
-  /** How long the last refresh took (shown beside the version in Settings). */
+  /** How long the last good refresh took (shown under the version in Settings); kept on this phone, so it shows after reopening. */
   timing: /** @type {typeof lastTiming|null} */ (null),
 };
 
@@ -109,6 +109,7 @@ export async function load() {
   status.user = saved.meta.user ?? '';
   status.sheetUrl = saved.meta.sheetUrl ?? '';
   status.lastSynced = saved.meta.lastSynced ?? null;
+  status.timing = saved.meta.timing ?? null;
   changed();
   return status.since !== null;
 }
@@ -145,7 +146,7 @@ async function run() {
     data.streaks = pulled.streaks ?? [];
     await db.replaceRows(rows);
     Object.assign(status, { since: pulled.server_time, user: pulled.user, sheetUrl: pulled.sheet_url, lastSynced: Date.now(), error: null, online: true, timing: { ...lastTiming } });
-    await db.setMeta({ since: status.since, user: status.user, sheetUrl: status.sheetUrl, lastSynced: status.lastSynced, balance: data.balance, streaks: data.streaks });
+    await db.setMeta({ since: status.since, user: status.user, sheetUrl: status.sheetUrl, lastSynced: status.lastSynced, balance: data.balance, streaks: data.streaks, timing: status.timing });
   } catch (e) {
     status.online = !isOffline(e);
     status.error = status.online ? (e instanceof Error ? e.message : String(e)) : null;
@@ -454,7 +455,7 @@ export async function forget() {
   take({});
   data.balance = 0;
   data.streaks = [];
-  Object.assign(status, { user: '', sheetUrl: '', since: null, lastSynced: null, error: null });
+  Object.assign(status, { user: '', sheetUrl: '', since: null, lastSynced: null, error: null, timing: null });
   changed();
 }
 
