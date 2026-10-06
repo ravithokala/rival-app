@@ -176,7 +176,7 @@ export function todayScreen(main) {
     el('div', { class: 'today-head' }, el('h1', { class: 'screen-title' }, 'Today'),
       el('span', { class: 'muted small' }, `${Dates.shortDay(day)} · Week ${week.number}`)),
     scoreCard(plan, day),
-    sleepCard(plan),
+    ...plan.checkIns.map(checkInCard),
     breakCard,
     welcome,
     ...(plan.cards.length ? plan.cards.map((c) => habitCard(c, plan.welcomeBack))
@@ -203,31 +203,39 @@ export function todayScreen(main) {
 }
 
 /**
- * The morning sleep check-in (ADR-024): about last night, outside the 3 activity cards. A habit: it counts for the Rival,
- * the perfect week and "Did you do these?". Yes (in bed by the bedtime in Rules) or No; then what was logged, with Undo.
- * @param {import('../shared/schedule.js').Plan} plan
+ * A check-in (ADR-024, ADR-026): a habit with its own Yes / No card, outside the 3 activity cards; it counts for the Rival,
+ * the perfect week and "Did you do these?". The early night asks about last night, all day; the TV-free evening asks from
+ * 18:00. Then what was logged, with Undo.
+ * @param {import('../shared/schedule.js').Card} card
  */
-function sleepCard(plan) {
-  const card = plan.sleep;
-  if (!card) return '';
+function checkInCard(card) {
   const { item, log } = card;
+  const tv = item.track_id === 'evening';
+  if (tv && !log && new Date().getHours() < 18) return '';
   const time = data.rules.early_night_time || '22:00';
-  const weekend = Points.WEEKEND_NIGHT_MORNINGS.includes(Model.DAYS[Dates.weekdayIndex(card.date)]);
-  const box = el('section', { class: `card habit sleep-check${log ? ' logged' : ''}` });
+  const weekend = !tv && Points.WEEKEND_NIGHT_MORNINGS.includes(Model.DAYS[Dates.weekdayIndex(card.date)]);
+  const box = el('section', { class: `card habit check-in ${item.schedule_id}${log ? ' logged' : ''}` });
   if (log) {
     const done = log.variant === 'full';
     box.append(
-      el('div', { class: 'habit-head' }, el('h2', {}, 'Last night'), el('span', { class: `pill ${log.variant}` }, done ? `In bed by ${time}` : 'Later')),
-      el('p', { class: 'muted small' }, done ? `+${pointsOf(log)} points. Well rested.` : 'No points. Tonight is another go.'),
+      el('div', { class: 'habit-head' }, el('h2', {}, tv ? 'This evening' : 'Last night'),
+        el('span', { class: `pill ${log.variant}` }, tv ? (done ? 'TV-free' : 'TV on') : (done ? `In bed by ${time}` : 'Later'))),
+      el('p', { class: 'muted small' }, done ? `+${pointsOf(log)} points. ${tv ? 'Enjoy the quiet.' : 'Well rested.'}` : `No points. ${tv ? 'Tomorrow' : 'Tonight'} is another go.`),
       el('div', { class: 'actions start' },
         el('button', { type: 'button', onclick: () => send(box, { schedule_id: item.schedule_id, date: card.date, undo: true }) }, 'Undo')));
     return box;
   }
+  // The TV-free evening's swap bonus: a habit done today.
+  const habitsDone = data.logs.filter((l) => l.date === card.date && l.schedule_id !== item.schedule_id && Schedule.isDone(l)
+    && data.schedule.some((i) => i.schedule_id === l.schedule_id && Schedule.isHabit(i))).length;
+  const points = Points.forLog('full', item, data.rules, 0, habitsDone, card.date).amount;
   const go = (/** @type {'full'|'skipped'} */ variant) => () => send(box, { schedule_id: item.schedule_id, date: card.date, variant }, item.label);
   box.append(
-    el('div', { class: 'habit-head' }, el('h2', {}, 'Early night last night?'), el('span', { class: 'muted small' }, `in bed by ${time}`)),
+    el('div', { class: 'habit-head' }, el('h2', {}, tv ? `${item.label}?` : `${item.label} last night?`),
+      el('span', { class: 'muted small' }, tv ? 'no TV tonight' : `in bed by ${time}`)),
     el('div', { class: 'actions three' },
-      el('button', { class: 'primary', type: 'button', onclick: go('full') }, 'Yes', el('span', { class: 'worth' }, `+${worth(item, 'full', card.date)}${weekend ? ' · weekend night' : ''}`)),
+      el('button', { class: 'primary', type: 'button', onclick: go('full') }, 'Yes',
+        el('span', { class: 'worth' }, `+${points}${weekend ? ' · weekend night' : ''}${tv && !habitsDone ? ` · +${Points.num(data.rules.tv_swap_bonus)} with a habit` : ''}`)),
       el('button', { type: 'button', onclick: go('skipped') }, 'No')));
   return box;
 }

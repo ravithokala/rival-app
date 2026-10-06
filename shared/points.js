@@ -39,7 +39,8 @@ const Points = (() => {
       const bonus = weekendNightBonus(rules);
       return { amount: num(rules[`points_${item.track_id}`]) + bonus, reason: bonus ? `${item.label} (weekend night bonus)` : item.label };
     }
-    if (item.extra) {
+    // The TV-free evening (a check-in habit since ADR-026, or a bonus toggle in an older Sheet), and any other bonus toggle.
+    if (item.extra || item.track_id === 'evening') {
       const swap = item.track_id === 'evening' && habitsDoneToday > 0 ? num(rules.tv_swap_bonus) : 0;
       return { amount: num(rules[`points_${item.track_id}`]) + swap, reason: swap ? `${item.label} (+ swap bonus)` : item.label };
     }

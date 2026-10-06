@@ -17,7 +17,7 @@ import { Points } from './points.js';
  * @typedef {{ track: Track, inWeeks: number }} Locked
  * @typedef {{ started: boolean, startsOn: string|null, week: { start: string, end: string, number: number }|null,
  *   cards: Card[], thisWeek: WeekItem[], catchUp: Card[], locked: Locked[], onBreak: Break|null, welcomeBack: boolean,
- *   breakDaysThisMonth: number, extras: Card[], sleep: Card|null }} Plan
+ *   breakDaysThisMonth: number, extras: Card[], checkIns: Card[] }} Plan
  */
 const Schedule = (() => {
   /** Today never shows more than 3 habit cards (docs/PROJECT_BRIEF.md). */
@@ -78,12 +78,15 @@ const Schedule = (() => {
   /** A habit in the plan, not a bonus toggle such as the TV-free evening (3b). @param {ScheduleItem} item */
   const isHabit = (item) => !item.extra;
 
+  /** The tracks whose habits are check-ins: the early night (ADR-024) and the TV-free evening (ADR-026). */
+  const CHECK_IN_TRACKS = Object.freeze(['sleep', 'evening']);
+
   /**
-   * The morning sleep check-in (ADR-024): a habit (it counts for the Rival, the perfect week and "Did you do these?") with
-   * its own card on Today, outside the 3 activity cards.
+   * A check-in (ADR-024, ADR-026): a habit (it counts for the Rival, the perfect week and "Did you do these?") with its own
+   * Yes / No card on Today, outside the 3 activity cards.
    * @param {ScheduleItem} item
    */
-  const isCheckIn = (item) => isHabit(item) && item.track_id === 'sleep';
+  const isCheckIn = (item) => isHabit(item) && CHECK_IN_TRACKS.includes(item.track_id);
 
   /** The live log of an item on a date. @param {LogEntry[]} logs @param {string} scheduleId @param {string} date */
   const logFor = (logs, scheduleId, date) => logs.find((l) => !l.deleted && l.schedule_id === scheduleId && l.date === date) ?? null;
@@ -99,11 +102,11 @@ const Schedule = (() => {
     const onBreak = breakOn(data.breaks, today);
     const breakDaysThisMonth = breakDays(data.breaks, `${today.slice(0, 8)}01`, today);
     if (!start || today < start) {
-      return { started: false, startsOn: start, week: null, cards: [], thisWeek: [], catchUp: [], locked: [], onBreak, welcomeBack: false, breakDaysThisMonth, extras: [], sleep: null };
+      return { started: false, startsOn: start, week: null, cards: [], thisWeek: [], catchUp: [], locked: [], onBreak, welcomeBack: false, breakDaysThisMonth, extras: [], checkIns: [] };
     }
     const week = { start: Dates.weekStart(today), end: Dates.addDays(Dates.weekStart(today), 6), number: weekNumber(start, today) };
     const all = activeItems(data, today);
-    // The sleep check-in has its own card; the 3 cards are for the activities.
+    // The check-ins have their own cards; the 3 cards are for the activities.
     const items = all.filter((i) => isHabit(i) && !isCheckIn(i));
     const inWeek = data.logs.filter((l) => !l.deleted && l.date >= week.start && l.date <= today);
     const daysLeft = Dates.daysBetween(today, week.end) + 1;
@@ -153,10 +156,9 @@ const Schedule = (() => {
     const welcomeBack = !onBreak && Boolean(breakOn(data.breaks, yesterday));
     // Bonus toggles due today (the TV-free evening), outside the 3 cards.
     const extras = all.filter((i) => !isHabit(i) && dueOn(i, today)).map((item) => ({ item, date: today, log: logFor(data.logs, item.schedule_id, today) }));
-    // This morning's sleep check-in (ADR-024), about last night.
-    const night = all.find((i) => isCheckIn(i) && dueOn(i, today));
-    const sleep = night ? { item: night, date: today, log: logFor(data.logs, night.schedule_id, today) } : null;
-    return { started: true, startsOn: start, week, cards, thisWeek, catchUp, locked, onBreak, welcomeBack, breakDaysThisMonth, extras, sleep };
+    // Today's check-ins (the early night, about last night; the TV-free evening), in Schedule order.
+    const checkIns = all.filter((i) => isCheckIn(i) && dueOn(i, today)).map((item) => ({ item, date: today, log: logFor(data.logs, item.schedule_id, today) }));
+    return { started: true, startsOn: start, week, cards, thisWeek, catchUp, locked, onBreak, welcomeBack, breakDaysThisMonth, extras, checkIns };
   }
 
   /**
@@ -174,7 +176,7 @@ const Schedule = (() => {
     return null;
   }
 
-  return { MAX_CARDS, isDone, isHabit, isCheckIn, weekNumber, unlockedEarly, trackOpen, breakOn, breakDays, activeItems, dueOn, logFor, plan, whyNotLoggable };
+  return { MAX_CARDS, CHECK_IN_TRACKS, isDone, isHabit, isCheckIn, weekNumber, unlockedEarly, trackOpen, breakOn, breakDays, activeItems, dueOn, logFor, plan, whyNotLoggable };
 })();
 
 export { Schedule };
