@@ -34,7 +34,8 @@ const Points = (() => {
    */
   function forLog(variant, item, rules, doneEarlierThisWeek, habitsDoneToday = 0, date = '') {
     if (variant === 'skipped') return { amount: 0, reason: `${item.label} skipped` };
-    if (item.extra && item.track_id === 'sleep' && Dates.isValid(date) && WEEKEND_NIGHT_MORNINGS.includes(Model.DAYS[Dates.weekdayIndex(date)])) {
+    // An early night (a habit, or still a bonus toggle in an older Sheet) after a Friday, Saturday or Sunday night.
+    if (item.track_id === 'sleep' && Dates.isValid(date) && WEEKEND_NIGHT_MORNINGS.includes(Model.DAYS[Dates.weekdayIndex(date)])) {
       const bonus = weekendNightBonus(rules);
       return { amount: num(rules[`points_${item.track_id}`]) + bonus, reason: bonus ? `${item.label} (weekend night bonus)` : item.label };
     }

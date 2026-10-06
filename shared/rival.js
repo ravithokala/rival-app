@@ -57,7 +57,8 @@ const Rival = (() => {
   function perfectDay(data, date) {
     const weekStart = Dates.weekStart(date);
     const items = Schedule.activeItems(data, date).filter(Schedule.isHabit);
-    const full = (/** @type {ScheduleItem} */ i) => Points.forLog('full', i, data.rules, 0).amount;
+    // On the day itself: an early night after a weekend night is worth more (ADR-024).
+    const full = (/** @type {ScheduleItem} */ i) => Points.forLog('full', i, data.rules, 0, 0, date).amount;
     let sum = items.filter((i) => Schedule.dueOn(i, date)).reduce((s, i) => s + full(i), 0);
     for (const item of items.filter((i) => i.mode === 'weekly')) {
       /** @type {string[]} */

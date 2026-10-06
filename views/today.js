@@ -21,11 +21,14 @@ import { businessToday, reviewBanner } from './business.js';
 
 const VARIANT_WORDS = { full: 'Done', minimum: 'Minimum', skipped: 'Skipped' };
 
-/** Points the full or minimum version would earn now (for the button labels). @param {ScheduleItem} item @param {'full'|'minimum'} variant */
-function worth(item, variant) {
-  const weekStart = Dates.weekStart(today());
-  const doneEarlier = data.logs.filter((l) => l.schedule_id === item.schedule_id && l.date >= weekStart && l.date !== today() && Schedule.isDone(l)).length;
-  return Points.forLog(variant, item, data.rules, doneEarlier).amount;
+/**
+ * Points the full or minimum version would earn now (for the button labels).
+ * @param {ScheduleItem} item @param {'full'|'minimum'} variant @param {string} [date]  the day it counts for (today)
+ */
+function worth(item, variant, date = today()) {
+  const weekStart = Dates.weekStart(date);
+  const doneEarlier = data.logs.filter((l) => l.schedule_id === item.schedule_id && l.date >= weekStart && l.date !== date && Schedule.isDone(l)).length;
+  return Points.forLog(variant, item, data.rules, doneEarlier, 0, date).amount;
 }
 
 /** The points row of a log, if it earned any. @param {LogEntry} log */
@@ -173,6 +176,7 @@ export function todayScreen(main) {
     el('div', { class: 'today-head' }, el('h1', { class: 'screen-title' }, 'Today'),
       el('span', { class: 'muted small' }, `${Dates.shortDay(day)} · Week ${week.number}`)),
     scoreCard(plan, day),
+    sleepCard(plan),
     breakCard,
     welcome,
     ...(plan.cards.length ? plan.cards.map((c) => habitCard(c, plan.welcomeBack))
@@ -196,6 +200,36 @@ export function todayScreen(main) {
         toast('Rest day: nothing is expected today.', [], rest ? () => { saveBreak({ action: 'remove', break_id: rest.break_id }).then((u) => { if (!u.ok) toast(u.message); }); } : undefined);
       } }, 'Rest today'),
       plan.breakDaysThisMonth ? el('span', { class: 'muted small' }, `Break days this month: ${plan.breakDaysThisMonth}`) : ''));
+}
+
+/**
+ * The morning sleep check-in (ADR-024): about last night, outside the 3 activity cards. A habit: it counts for the Rival,
+ * the perfect week and "Did you do these?". Yes (in bed by the bedtime in Rules) or No; then what was logged, with Undo.
+ * @param {import('../shared/schedule.js').Plan} plan
+ */
+function sleepCard(plan) {
+  const card = plan.sleep;
+  if (!card) return '';
+  const { item, log } = card;
+  const time = data.rules.early_night_time || '22:00';
+  const weekend = Points.WEEKEND_NIGHT_MORNINGS.includes(Model.DAYS[Dates.weekdayIndex(card.date)]);
+  const box = el('section', { class: `card habit sleep-check${log ? ' logged' : ''}` });
+  if (log) {
+    const done = log.variant === 'full';
+    box.append(
+      el('div', { class: 'habit-head' }, el('h2', {}, 'Last night'), el('span', { class: `pill ${log.variant}` }, done ? `In bed by ${time}` : 'Later')),
+      el('p', { class: 'muted small' }, done ? `+${pointsOf(log)} points. Well rested.` : 'No points. Tonight is another go.'),
+      el('div', { class: 'actions start' },
+        el('button', { type: 'button', onclick: () => send(box, { schedule_id: item.schedule_id, date: card.date, undo: true }) }, 'Undo')));
+    return box;
+  }
+  const go = (/** @type {'full'|'skipped'} */ variant) => () => send(box, { schedule_id: item.schedule_id, date: card.date, variant }, item.label);
+  box.append(
+    el('div', { class: 'habit-head' }, el('h2', {}, 'Early night last night?'), el('span', { class: 'muted small' }, `in bed by ${time}`)),
+    el('div', { class: 'actions three' },
+      el('button', { class: 'primary', type: 'button', onclick: go('full') }, 'Yes', el('span', { class: 'worth' }, `+${worth(item, 'full', card.date)}${weekend ? ' · weekend night' : ''}`)),
+      el('button', { type: 'button', onclick: go('skipped') }, 'No')));
+  return box;
 }
 
 /** The Rival's card: avatar, name, one line. @param {string} name @param {string} line */

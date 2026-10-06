@@ -184,6 +184,7 @@ a.button { display: inline-flex; align-items: center; justify-content: center; t
 .habit-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .habit-head h2 { margin: 0; }
 .habit.logged { border-left: 4px solid var(--ok); }
+.sleep-check:not(.logged) { border-left: 4px solid var(--accent); }
 .habit[aria-busy="true"] { opacity: 0.6; }
 .tag { display: inline-block; margin-left: 8px; padding: 0 6px; border-radius: 4px; background: var(--soft); color: var(--muted); font-size: 12px; font-weight: 600; vertical-align: 2px; }
 .pill { flex: none; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 700; }
