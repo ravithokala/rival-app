@@ -5,6 +5,7 @@ import { data, saveLog, saveBreak, today } from '../store/store.js';
 import { Schedule } from '../shared/schedule.js';
 import { Points } from '../shared/points.js';
 import { Dates } from '../shared/dates.js';
+import { Model } from '../shared/model.js';
 import { openSheet, toast } from './sheet.js';
 import { rivalName } from './screens.js';
 import { scoreCard } from './rival.js';
@@ -207,7 +208,7 @@ function rivalCard(name, line) {
 /**
  * The bonus toggles due today, outside the 3 habit cards; nothing is missed without them. The TV-free evening (3b): from
  * 18:00 (or once logged), 10 points, +5 if a habit was done today. An early night (ADR-024): on Saturday, Sunday and
- * Monday mornings, "Early night last night?", all day, 10 points, counted for that morning.
+ * every morning, "Early night last night?", all day, 10 points (15 after a Friday, Saturday or Sunday night), counted for that morning.
  * @param {import('../shared/schedule.js').Plan} plan
  */
 function extraCards(plan) {
@@ -220,7 +221,8 @@ function extraCards(plan) {
     const title = tv ? extra.item.label : `${extra.item.label} last night?`;
     const text = tv
       ? (on ? `+${earned} points. Enjoy the quiet.` : `+${worth}, and +${Points.num(data.rules.tv_swap_bonus)} more if you did a habit today.`)
-      : (on ? `+${earned} points. Well rested.` : `In bed by ${data.rules.early_night_time || '22:00'} · +${worth}`);
+      : (on ? `+${earned} points. Well rested.` : `In bed by ${data.rules.early_night_time || '22:00'} · +${Points.forLog('full', extra.item, data.rules, 0, 0, extra.date).amount}`
+        + `${Points.WEEKEND_NIGHT_MORNINGS.includes(Model.DAYS[Dates.weekdayIndex(extra.date)]) ? ' (weekend night)' : ''}`);
     const box = el('section', { class: `card extra ${extra.item.schedule_id}` });
     box.append(
       el('div', { class: 'extra-text' }, el('h2', {}, title), el('p', { class: 'muted small' }, text)),
