@@ -39,6 +39,8 @@ export const data = {
   /** @type {Question[]} */ questions: [],
   /** @type {Challenge[]} */ challenges: [],
   /** @type {ChallengeWeek[]} */ challenge_weeks: [],
+  /** @type {WorkoutRow[]} */ workouts: [],
+  /** Where each workout plan stands (from the server: the phone keeps only recent logs). @type {Record<string, WorkoutProgress>} */ workout_progress: {},
 };
 
 export const status = {
@@ -89,6 +91,7 @@ function take(rows) {
   data.questions = rows.questions ?? [];
   data.challenges = rows.challenges ?? [];
   data.challenge_weeks = rows.challenge_weeks ?? [];
+  data.workouts = rows.workouts ?? [];
 }
 
 /** Today on this phone, after the day cutoff (ADR-004): an entry at 01:30 counts for the evening before. */
@@ -105,6 +108,7 @@ export async function load() {
   take(saved.rows);
   data.balance = saved.meta.balance ?? 0;
   data.streaks = saved.meta.streaks ?? [];
+  data.workout_progress = saved.meta.workout_progress ?? {};
   status.since = saved.meta.since ?? null;
   status.user = saved.meta.user ?? '';
   status.sheetUrl = saved.meta.sheetUrl ?? '';
@@ -140,13 +144,14 @@ async function run() {
       breaks: pulled.breaks ?? [], weeks: pulled.weeks ?? [], lines: pulled.lines ?? [], rewards: pulled.rewards ?? [], milestones: pulled.milestones ?? [],
       steps: pulled.steps ?? [], tasks: pulled.tasks ?? [], dates: pulled.dates ?? [], facts: pulled.facts ?? [],
       plans: pulled.plans ?? [], books: pulled.books ?? [], chapters: pulled.chapters ?? [], questions: pulled.questions ?? [],
-      challenges: pulled.challenges ?? [], challenge_weeks: pulled.challenge_weeks ?? [] };
+      challenges: pulled.challenges ?? [], challenge_weeks: pulled.challenge_weeks ?? [], workouts: pulled.workouts ?? [] };
     take(rows);
     data.balance = pulled.balance ?? 0;
     data.streaks = pulled.streaks ?? [];
+    data.workout_progress = pulled.workout_progress ?? {};
     await db.replaceRows(rows);
     Object.assign(status, { since: pulled.server_time, user: pulled.user, sheetUrl: pulled.sheet_url, lastSynced: Date.now(), error: null, online: true, timing: { ...lastTiming } });
-    await db.setMeta({ since: status.since, user: status.user, sheetUrl: status.sheetUrl, lastSynced: status.lastSynced, balance: data.balance, streaks: data.streaks, timing: status.timing });
+    await db.setMeta({ since: status.since, user: status.user, sheetUrl: status.sheetUrl, lastSynced: status.lastSynced, balance: data.balance, streaks: data.streaks, workout_progress: data.workout_progress, timing: status.timing });
   } catch (e) {
     status.online = !isOffline(e);
     status.error = status.online ? (e instanceof Error ? e.message : String(e)) : null;
@@ -455,6 +460,7 @@ export async function forget() {
   take({});
   data.balance = 0;
   data.streaks = [];
+  data.workout_progress = {};
   Object.assign(status, { user: '', sheetUrl: '', since: null, lastSynced: null, error: null, timing: null });
   changed();
 }

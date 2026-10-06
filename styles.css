@@ -185,6 +185,17 @@ a.button { display: inline-flex; align-items: center; justify-content: center; t
 .habit-head h2 { margin: 0; }
 .habit.logged { border-left: 4px solid var(--ok); }
 .check-in:not(.logged) { border-left: 4px solid var(--accent); }
+/* Workout plans (ADR-029) */
+.session-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.workout-stage { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); color: var(--text); }
+.workout-last { padding: 8px 12px; border-radius: 8px; background: var(--soft); }
+.workout-last p { margin: 2px 0 0; overflow-wrap: anywhere; }
+.workout-section h3 { margin-top: 4px; }
+.workout-row { padding: 6px 0; border-top: 1px solid var(--line); }
+.workout-row:first-child { border-top: 0; }
+.workout-dose { font-weight: 600; color: var(--accent); font-size: 14px; }
+.workout-options > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--accent); font-weight: 600; font-size: 14px; }
+.workout-options p { margin: 2px 0; }
 .habit[aria-busy="true"] { opacity: 0.6; }
 .tag { display: inline-block; margin-left: 8px; padding: 0 6px; border-radius: 4px; background: var(--soft); color: var(--muted); font-size: 12px; font-weight: 600; vertical-align: 2px; }
 .pill { flex: none; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 700; }

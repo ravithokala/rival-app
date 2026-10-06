@@ -10,11 +10,11 @@
  * - SHELL: every file of the app (tests/pwa.test.js checks it).
  * - LEGACY: names of older saved copies to delete (none for this app; kept as the other apps have it).
  */
-const VERSION = 'shell-2ce17e8-86fdfd177205';
+const VERSION = 'shell-4b6ccc6-14608bb742d9';
 const SHELL = ['./', 'index.html', 'app.js', 'api.js', 'request.js', 'auth.js', 'update.js', 'freshness.js', 'guard.js', 'checks.js', 'install.js', 'problems.js', 'config.js', 'dom.js', 'theme.js', 'theme-boot.js', 'version.js', 'styles.css',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
-  'shared/dates.js', 'shared/model.js', 'shared/schedule.js', 'shared/points.js', 'shared/rival.js', 'shared/business.js', 'shared/reading.js', 'shared/challenges.js', 'store/db.js', 'store/store.js',
-  'views/sheet.js', 'views/screens.js', 'views/today.js', 'views/rival.js', 'views/showdown.js', 'views/progress.js', 'views/business.js', 'views/review.js', 'views/reading.js', 'views/settings.js', 'views/system.js'];
+  'shared/dates.js', 'shared/model.js', 'shared/schedule.js', 'shared/points.js', 'shared/rival.js', 'shared/business.js', 'shared/reading.js', 'shared/challenges.js', 'shared/workouts.js', 'store/db.js', 'store/store.js',
+  'views/sheet.js', 'views/screens.js', 'views/today.js', 'views/rival.js', 'views/showdown.js', 'views/progress.js', 'views/business.js', 'views/review.js', 'views/reading.js', 'views/workout.js', 'views/settings.js', 'views/system.js'];
 const LEGACY = /^shell-v\d+$/;
 
 // ---- Below this line: app-kit/pwa/sw-core.js. GENERATED: change it in ../app-kit, then run "node ../app-kit/sync.js" in this app. ----

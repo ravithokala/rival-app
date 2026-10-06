@@ -10,6 +10,7 @@ import { openSheet, toast } from './sheet.js';
 import { rivalName } from './screens.js';
 import { scoreCard } from './rival.js';
 import { businessToday, reviewBanner } from './business.js';
+import { planFor, openSession, sessionLine, logTemplate } from './workout.js';
 
 /**
  * Today (docs/PROJECT_BRIEF.md, Screens): up to 3 habit cards with Done / Minimum / Skip in one tap, the
@@ -57,7 +58,8 @@ async function send(host, change, label) {
 /** Change the minutes or note of a log (or what was logged). @param {ScheduleItem} item @param {LogEntry} log */
 function changeSheet(item, log) {
   const minutes = /** @type {HTMLInputElement} */ (el('input', { type: 'number', inputmode: 'numeric', min: '0', max: '600', value: log.minutes ?? '' }));
-  const note = /** @type {HTMLTextAreaElement} */ (el('textarea', { rows: '3', maxlength: '500' }, log.note ?? ''));
+  // A habit with a workout plan (ADR-029): the note starts as the session's log line to fill in.
+  const note = /** @type {HTMLTextAreaElement} */ (el('textarea', { rows: '3', maxlength: '500' }, log.note ?? logTemplate(item, log.date)));
   let variant = log.variant;
   const choices = el('div', { class: 'segmented', role: 'group', 'aria-label': 'What you did' });
   const drawChoices = () => choices.replaceChildren(...(/** @type {Array<'full'|'minimum'|'skipped'>} */ (['full', 'minimum', 'skipped']))
@@ -95,11 +97,17 @@ function habitCard(card, easy = false) {
   const { item, log } = card;
   const box = el('section', { class: `card habit${log ? ' logged' : ''}` });
   const minutes = (/** @type {number|null} */ m) => (m === null || m === undefined ? '' : `${m} min`);
+  // A workout plan (ADR-029): which session, and the session itself one tap away.
+  const plan = planFor(item, card.date);
+  const session = plan ? el('div', { class: 'session-row' }, el('span', { class: 'muted small' }, sessionLine(plan)),
+    el('button', { class: 'link', type: 'button', onclick: () => openSession(item, card.date) }, `Open session ${plan.session}`)) : '';
   const tag = item.mode === 'stretch' ? el('span', { class: 'tag' }, 'stretch') : item.mode === 'weekly' ? el('span', { class: 'tag' }, 'this week') : '';
   if (log) {
     box.append(
       el('div', { class: 'habit-head' }, el('h2', {}, item.label, tag), el('span', { class: `pill ${log.variant}` }, VARIANT_WORDS[log.variant])),
       el('p', { class: 'muted small' }, [minutes(log.minutes), pointsOf(log) ? `+${pointsOf(log)} points` : 'no points', log.note ? `“${log.note}”` : ''].filter(Boolean).join(' · ')),
+      session,
+      plan && !log.note && log.variant !== 'skipped' ? el('p', { class: 'muted small' }, 'Add your numbers: Change → Note.') : '',
       el('div', { class: 'actions start' },
         el('button', { type: 'button', onclick: () => send(box, { schedule_id: item.schedule_id, date: card.date, undo: true }) }, 'Undo'),
         el('button', { type: 'button', onclick: () => changeSheet(item, log) }, 'Change')));
@@ -108,6 +116,7 @@ function habitCard(card, easy = false) {
   const go = (/** @type {'full'|'minimum'|'skipped'} */ variant) => () => send(box, { schedule_id: item.schedule_id, date: card.date, variant }, item.label);
   box.append(
     el('div', { class: 'habit-head' }, el('h2', {}, item.label, tag), el('span', { class: 'muted small' }, minutes(item.full_minutes))),
+    session,
     el('div', { class: 'actions three' },
       el('button', { class: easy && item.min_minutes !== null ? '' : 'primary', type: 'button', onclick: go('full') }, 'Done', el('span', { class: 'worth' }, `+${worth(item, 'full')}`)),
       item.min_minutes !== null
@@ -142,7 +151,13 @@ export function todayScreen(main) {
       el('span', { class: 'visually-hidden' }, ` this week${w.item.mode === 'stretch' ? ', a stretch' : ''}. Tap to log one today.`));
       return chip;
     })),
-    el('p', { class: 'muted small' }, 'Tap one to log it for today. ✦ stretch: a bonus if you do it, nothing lost if not.')) : '';
+    el('p', { class: 'muted small' }, 'Tap one to log it for today. ✦ stretch: a bonus if you do it, nothing lost if not.'),
+    // Workout plans (ADR-029) of items not on today's cards: the session stays one tap away.
+    plan.thisWeek.filter((w) => !plan.cards.some((c) => c.item.schedule_id === w.item.schedule_id)).map((w) => {
+      const p = planFor(w.item, day);
+      return p ? el('div', { class: 'session-row' }, el('span', { class: 'muted small' }, `${w.item.label}: ${sessionLine(p)}`),
+        el('button', { class: 'link', type: 'button', onclick: () => openSession(w.item, day) }, `Open session ${p.session}`)) : '';
+    })) : '';
 
   const catchUp = plan.catchUp.length ? el('section', { class: 'card catch-up' },
     el('h2', {}, 'Did you do these?'),

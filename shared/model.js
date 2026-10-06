@@ -43,6 +43,13 @@ const Model = (() => {
   const CHALLENGE_FIELDS = Object.freeze(['challenge_id', 'category', 'text', 'points', 'paused', 'version', 'updated_at']);
   const CHALLENGE_WEEK_FIELDS = Object.freeze(['week_start', 'challenge_id', 'swapped', 'done_on', 'version', 'updated_at']);
   const BOOK_STATUSES = Object.freeze(['reading', 'finished', 'stopped']);
+  /**
+   * A workout plan for a habit (ADR-029; Workouts tab, filled in by RT): one row per step of a session (A, B …): section
+   * 'warm-up', 'pair 1' … 'pair 9', 'cool-down' or 'log' (the log line to fill in); 'progress' rows (no session) give the
+   * guidance for a range of sessions done, in `dose` ("1–2").
+   */
+  const WORKOUT_FIELDS = Object.freeze(['row_id', 'schedule_id', 'session', 'section', 'order', 'exercise', 'dose', 'form', 'easier', 'harder',
+    'paused', 'version', 'updated_at']);
   const TASK_STATUSES = Object.freeze(['todo', 'in_progress', 'blocked', 'done', 'retired']);
   const TASK_KINDS = Object.freeze(['task', 'outreach']);
   /** A task or step id: 0A, 1, 0A.1, 3.4 … */
@@ -70,7 +77,7 @@ const Model = (() => {
   const MAX_SUMMARY = 200;
 
   return { TRACK_FIELDS, SCHEDULE_FIELDS, LOG_FIELDS, POINT_FIELDS, BREAK_FIELDS, WEEK_FIELDS, LINE_FIELDS, REWARD_FIELDS, MILESTONE_FIELDS,
-    STEP_FIELDS, TASK_FIELDS, DATE_FIELDS, PLAN_FIELDS, BOOK_FIELDS, CHAPTER_FIELDS, QUESTION_FIELDS, CHALLENGE_FIELDS, CHALLENGE_WEEK_FIELDS,
+    STEP_FIELDS, TASK_FIELDS, DATE_FIELDS, PLAN_FIELDS, BOOK_FIELDS, CHAPTER_FIELDS, QUESTION_FIELDS, CHALLENGE_FIELDS, CHALLENGE_WEEK_FIELDS, WORKOUT_FIELDS,
     TASK_STATUSES, TASK_KINDS, BOOK_STATUSES, BIZ_ID, MODES, VARIANTS, VOICES, DAYS, POINT_TYPES, SETTING_KEYS,
     ID, MAX_NOTE, MAX_MINUTES, MAX_BREAK_DAYS, MAX_TITLE, MAX_ANSWER, MAX_SUMMARY };
 })();
