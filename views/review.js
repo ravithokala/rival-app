@@ -9,7 +9,7 @@ import { copy, dateLabel } from './business.js';
 
 /**
  * The weekly review (4b; docs/PROJECT_BRIEF.md, Weekly review): last week (done, slipped, blocked), progress per
- * step, dates at risk, and a proposed plan for this week (one task a weekday) that can be changed before it is
+ * step, dates at risk, and a proposed plan for this week (one task per block day) that can be changed before it is
  * accepted; each change says its trade-off in one line. Accepting saves the plan and shows the STATUS block to copy.
  * The coach's voice.
  */
@@ -30,7 +30,7 @@ export function reviewScreen(main) {
   const accepted = Business.planOf(data.plans, weekStart);
   if (!draft || draft.week !== weekStart) {
     draft = { week: weekStart, rows: accepted.length ? accepted.map((p) => ({ date: p.date, task_id: p.task_id }))
-      : Business.propose(data.tasks, data.steps, data.plans, day).map((x) => ({ date: x.date, task_id: x.task.task_id })) };
+      : Business.propose(data.tasks, data.steps, data.plans, day, Business.blockDaysOf(data, day)).map((x) => ({ date: x.date, task_id: x.task.task_id })) };
   }
   const plan = draft;
   const byId = new Map(data.tasks.map((t) => [t.task_id, t]));
@@ -41,8 +41,9 @@ export function reviewScreen(main) {
 
   /** The next ready task not already in the plan. */
   const nextReady = () => Business.ordered(Business.available(data.tasks, weekStart), data.steps).find((t) => !plan.rows.some((r) => r.task_id === t.task_id));
-  /** The weekdays from today to Friday. */
-  const days = () => { const out = []; for (let d = day > weekStart ? day : weekStart; d <= Dates.addDays(weekStart, 4); d = Dates.addDays(d, 1)) out.push(d); return out; };
+  /** The block days from today to the end of the week (Monday to Friday, or the weekly block's preferred days: ADR-028). */
+  const blockDays = Business.blockDaysOf(data, day);
+  const days = () => { const out = []; for (let d = day > weekStart ? day : weekStart; d <= Dates.addDays(weekStart, 6); d = Dates.addDays(d, 1)) if (blockDays.includes(DAY[Dates.weekdayIndex(d)])) out.push(d); return out; };
 
   const remove = (/** @type {number} */ i) => {
     const [gone] = plan.rows.splice(i, 1);

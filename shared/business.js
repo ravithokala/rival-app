@@ -2,6 +2,7 @@
 // GENERATED from apps-script/domain/business.js by scripts/sync-shared.js. Do not edit here:
 // edit that file and run `npm run sync:shared`.
 import { Dates } from './dates.js';
+import { Model } from './model.js';
 import { Schedule } from './schedule.js';
 import { Points } from './points.js';
 
@@ -73,11 +74,45 @@ const Business = (() => {
     return out;
   }
 
-  /** The business block's minutes today (0 when there is none: a break, or no block that day). @param {PlanData} data @param {string} date */
+  /** The business block (a habit) in use on a date, if any. @param {PlanData} data @param {string} date @returns {ScheduleItem|null} */
+  const blockItem = (data, date) => Schedule.activeItems(data, date).find((i) => i.track_id === 'business' && Schedule.isHabit(i)) ?? null;
+
+  /**
+   * Whether a date is a planned block day: a fixed block due, or one of a weekly block's preferred days (ADR-028).
+   * @param {ScheduleItem} item @param {string} date
+   */
+  const plannedOn = (item, date) => Schedule.dueOn(item, date) || (item.mode !== 'fixed' && item.days.includes(Model.DAYS[Dates.weekdayIndex(date)]));
+
+  /**
+   * Whether the block is worked on a date (ADR-028): a planned day; for a weekly block also a day it was logged as done, or one
+   * the week's target can only be met by doing it (as many blocks still needed as days left).
+   * @param {PlanData} data @param {ScheduleItem} item @param {string} date
+   */
+  function blockDay(data, item, date) {
+    if (plannedOn(item, date)) return true;
+    if (item.mode === 'fixed') return false;
+    if (data.logs.some((l) => l.schedule_id === item.schedule_id && l.date === date && Schedule.isDone(l))) return true;
+    const weekStart = Dates.weekStart(date);
+    const done = data.logs.filter((l) => l.schedule_id === item.schedule_id && l.date >= weekStart && l.date < date && Schedule.isDone(l)).length;
+    const need = (item.times_per_week ?? 1) - done;
+    return need > 0 && Dates.daysBetween(date, Dates.addDays(weekStart, 6)) + 1 <= need;
+  }
+
+  /**
+   * The weekdays the weekly review plans tasks on: a weekly block's preferred days, else Monday to Friday (4b).
+   * @param {PlanData} data @param {string} day
+   */
+  function blockDaysOf(data, day) {
+    const item = blockItem(data, day) ?? data.schedule.find((i) => i.track_id === 'business' && Schedule.isHabit(i) && !i.paused) ?? null;
+    return item && item.mode !== 'fixed' && item.days.length ? item.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  }
+
+  /** The business block's minutes on a date (0 when there is none: a break, or no block that day). @param {PlanData} data @param {string} date */
   const budgetOn = (data, date) => {
-    const block = Schedule.activeItems(data, date).filter((i) => i.track_id === 'business' && Schedule.dueOn(i, date))
-      .reduce((m, i) => Math.max(m, i.full_minutes ?? 0), 0);
-    // One block every day; a weekend one is longer (ADR-027): Rules business_weekend_minutes, or 60 until the tab has it.
+    const item = blockItem(data, date);
+    if (!item || !blockDay(data, item, date)) return 0;
+    const block = item.full_minutes ?? 0;
+    // A weekend block is longer (ADR-027): Rules business_weekend_minutes, or 60 until the tab has it.
     const weekend = data.rules.business_weekend_minutes === undefined ? 60 : Points.num(data.rules.business_weekend_minutes);
     return block > 0 && Points.isWeekend(date) ? Math.max(block, weekend) : block;
   };
@@ -176,12 +211,14 @@ const Business = (() => {
   }
 
   /**
-   * This week's proposed plan: one task per weekday from today (Mon–Fri), five at most. Outreach first once any is
-   * ready, then last week's slipped tasks, then those in progress, then the plan's order (4b).
+   * This week's proposed plan: one task per block day from today (Monday to Friday, or a weekly block's preferred days:
+   * ADR-028). Outreach first once any is ready, then last week's slipped tasks, then those in progress, then the plan's
+   * order (4b).
    * @param {BizTask[]} tasks @param {Step[]} steps @param {PlanRow[]} plans @param {string} day
+   * @param {string[]} [blockDays]  weekdays (Mon … Sun) with a block
    * @returns {Array<{ date: string, task: BizTask }>}
    */
-  function propose(tasks, steps, plans, day) {
+  function propose(tasks, steps, plans, day, blockDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']) {
     const weekStart = Dates.weekStart(day);
     const ready = ordered(available(tasks, weekStart), steps);
     const slipped = new Set(lastWeek(tasks, steps, plans, day).slipped.map((t) => t.task_id));
@@ -195,8 +232,10 @@ const Business = (() => {
     const seen = new Set();
     const picks = queue.filter((t) => !seen.has(t.task_id) && seen.add(t.task_id));
     const days = [];
-    for (let d = day > weekStart ? day : weekStart; d <= Dates.addDays(weekStart, 4); d = Dates.addDays(d, 1)) days.push(d);
-    return days.slice(0, 5).map((date, i) => ({ date, task: picks[i] })).filter((x) => Boolean(x.task));
+    for (let d = day > weekStart ? day : weekStart; d <= Dates.addDays(weekStart, 6); d = Dates.addDays(d, 1)) {
+      if (blockDays.includes(Model.DAYS[Dates.weekdayIndex(d)])) days.push(d);
+    }
+    return days.map((date, i) => ({ date, task: picks[i] })).filter((x) => Boolean(x.task));
   }
 
   /**
@@ -230,8 +269,9 @@ const Business = (() => {
   }
 
   /**
-   * Business days missed in a row before today (4b, the restart rule): a day with a business block due (not on a
-   * break) where the block was not logged as done or minimum and no task was finished. Break days are skipped.
+   * Business days missed in a row before today (4b, the restart rule): a planned block day (a fixed block due, or a weekly
+   * block's preferred day: ADR-028; not on a break) where the block was not logged as done or minimum and no task was
+   * finished. Other days and break days are skipped.
    * @param {PlanData} data @param {BizTask[]} tasks @param {string} day
    */
   function missedInARow(data, tasks, day) {
@@ -239,9 +279,9 @@ const Business = (() => {
     if (!start) return 0;
     let n = 0;
     for (let d = Dates.addDays(day, -1); d >= start && Dates.daysBetween(d, day) <= 14; d = Dates.addDays(d, -1)) {
-      const due = Schedule.activeItems(data, d).filter((i) => i.track_id === 'business' && Schedule.dueOn(i, d));
-      if (!due.length) continue;
-      const worked = data.logs.some((l) => l.date === d && due.some((i) => i.schedule_id === l.schedule_id) && Schedule.isDone(l))
+      const item = blockItem(data, d);
+      if (!item || !plannedOn(item, d)) continue;
+      const worked = data.logs.some((l) => l.date === d && l.schedule_id === item.schedule_id && Schedule.isDone(l))
         || tasks.some((t) => t.done_on === d);
       if (worked) break;
       n += 1;
@@ -256,7 +296,7 @@ const Business = (() => {
     return bySize.find((t) => (t.estimate_min ?? 0) <= 15) ?? ready.find((t) => t.status === 'in_progress') ?? bySize[0] ?? null;
   }
 
-  return { byId, ordered, finished, depsDone, available, today, budgetOn, stepProgress, stepComplete, atRisk, statusBlock, helpPrompt,
+  return { byId, ordered, finished, depsDone, available, today, blockDaysOf, budgetOn, stepProgress, stepComplete, atRisk, statusBlock, helpPrompt,
     planOf, reviewDue, doneIn, lastWeek, propose, todayPlanned, missedInARow, restartTask };
 })();
 

@@ -54,8 +54,8 @@ const Points = (() => {
       return { amount: 0, reason: `${item.label}: over this week's limit` };
     }
     if (variant === 'minimum') return { amount: num(rules.points_minimum), reason: `${item.label} (minimum)` };
-    // One business block every day; the full one on a weekend earns more (ADR-027).
-    if (item.track_id === 'business' && item.mode === 'fixed' && isWeekend(date)) {
+    // A full business block on a weekend earns more (ADR-027), daily or weekly (ADR-028).
+    if (item.track_id === 'business' && item.mode !== 'stretch' && isWeekend(date)) {
       const extra = businessWeekendBonus(rules);
       return { amount: num(rules.points_business) + extra, reason: extra ? `${item.label} (weekend bonus)` : item.label };
     }
