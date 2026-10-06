@@ -9,8 +9,8 @@ import { Model } from './model.js';
  * a stretch item (the ride) a bonus on top, a skip nothing. A weekly or stretch item earns nothing beyond
  * its weekly target plus the extras cap (ADR-008). An extra (the TV-free evening, an early night) earns its track's
  * points; the TV-free evening also earns the swap bonus when a habit was done that day, and an early night after a Friday,
- * Saturday or Sunday night (asked on Saturday, Sunday and Monday mornings) the weekend night bonus (ADR-024). Values come
- * from the Rules tab.
+ * Saturday or Sunday night (asked on Saturday, Sunday and Monday mornings) the weekend night bonus (ADR-024). A full business
+ * block on a Saturday or Sunday earns the weekend bonus (ADR-027). Values come from the Rules tab.
  *
  * Shared with the phone app: scripts/sync-shared.js copies this file to pwa/shared/.
  */
@@ -22,6 +22,12 @@ const Points = (() => {
   const WEEKEND_NIGHT_MORNINGS = Object.freeze(['Sat', 'Sun', 'Mon']);
   /** The weekend night bonus: the Rules value, or 5 while the Rules tab does not have it yet. @param {Record<string, string|null>} rules */
   const weekendNightBonus = (rules) => (rules.sleep_weekend_bonus === undefined ? 5 : num(rules.sleep_weekend_bonus));
+
+  /** A full business block on a Saturday or Sunday earns this on top (ADR-027): the Rules value, or 10 until the tab has it. @param {Record<string, string|null>} rules */
+  const businessWeekendBonus = (rules) => (rules.business_weekend_bonus === undefined ? 10 : num(rules.business_weekend_bonus));
+
+  /** Saturday or Sunday. @param {string} date */
+  const isWeekend = (date) => Dates.isValid(date) && Dates.weekdayIndex(date) >= 5;
 
   /**
    * @param {'full'|'minimum'|'skipped'} variant
@@ -48,6 +54,11 @@ const Points = (() => {
       return { amount: 0, reason: `${item.label}: over this week's limit` };
     }
     if (variant === 'minimum') return { amount: num(rules.points_minimum), reason: `${item.label} (minimum)` };
+    // One business block every day; the full one on a weekend earns more (ADR-027).
+    if (item.track_id === 'business' && item.mode === 'fixed' && isWeekend(date)) {
+      const extra = businessWeekendBonus(rules);
+      return { amount: num(rules.points_business) + extra, reason: extra ? `${item.label} (weekend bonus)` : item.label };
+    }
     const bonus = item.mode === 'stretch' ? num(rules.stretch_bonus) : 0;
     return { amount: num(rules[`points_${item.track_id}`]) + bonus, reason: bonus ? `${item.label} (stretch bonus)` : item.label };
   }
@@ -59,7 +70,7 @@ const Points = (() => {
   /** The balance: every point earned minus every point spent (spend rows hold the cost). @param {PointEntry[]} points */
   const balance = (points) => points.filter((p) => !p.deleted).reduce((sum, p) => sum + (p.type === 'earn' ? p.amount ?? 0 : p.type === 'spend' ? -(p.amount ?? 0) : 0), 0);
 
-  return { num, WEEKEND_NIGHT_MORNINGS, forLog, earned, balance };
+  return { num, WEEKEND_NIGHT_MORNINGS, isWeekend, forLog, earned, balance };
 })();
 
 export { Points };

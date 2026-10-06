@@ -3,6 +3,7 @@
 // edit that file and run `npm run sync:shared`.
 import { Dates } from './dates.js';
 import { Schedule } from './schedule.js';
+import { Points } from './points.js';
 
 /**
  * The business track's rules (Milestone 4; docs/PROJECT_BRIEF.md, Business track): which tasks are open and
@@ -73,8 +74,13 @@ const Business = (() => {
   }
 
   /** The business block's minutes today (0 when there is none: a break, or no block that day). @param {PlanData} data @param {string} date */
-  const budgetOn = (data, date) => Schedule.activeItems(data, date).filter((i) => i.track_id === 'business' && Schedule.dueOn(i, date))
-    .reduce((m, i) => Math.max(m, i.full_minutes ?? 0), 0);
+  const budgetOn = (data, date) => {
+    const block = Schedule.activeItems(data, date).filter((i) => i.track_id === 'business' && Schedule.dueOn(i, date))
+      .reduce((m, i) => Math.max(m, i.full_minutes ?? 0), 0);
+    // One block every day; a weekend one is longer (ADR-027): Rules business_weekend_minutes, or 60 until the tab has it.
+    const weekend = data.rules.business_weekend_minutes === undefined ? 60 : Points.num(data.rules.business_weekend_minutes);
+    return block > 0 && Points.isWeekend(date) ? Math.max(block, weekend) : block;
+  };
 
   /** Progress per step: done of all (weekly repeats and retired tasks aside). @param {BizTask[]} tasks @param {Step[]} steps */
   function stepProgress(tasks, steps) {
