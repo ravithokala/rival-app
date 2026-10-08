@@ -289,11 +289,14 @@ const Business = (() => {
     return n;
   }
 
-  /** The one restart task after missed days: the smallest ready one of 15 minutes or less, else the one in progress, else the smallest. @param {BizTask[]} tasks @param {Step[]} steps @param {string} weekStart */
-  function restartTask(tasks, steps, weekStart) {
-    const ready = ordered(available(tasks, weekStart), steps);
-    const bySize = [...ready].sort((a, b) => (a.estimate_min ?? 0) - (b.estimate_min ?? 0));
-    return bySize.find((t) => (t.estimate_min ?? 0) <= 15) ?? ready.find((t) => t.status === 'in_progress') ?? bySize[0] ?? null;
+  /**
+   * The one restart task after missed days (ADR-030): the task next in line, as on a normal day (planned for today, carried
+   * from earlier this week, in progress, then the plan's order), with just 15 minutes on it. Not a smaller task out of order.
+   * @param {BizTask[]} tasks @param {Step[]} steps @param {PlanRow[]} plans @param {string} day @param {string[]} [skipped]
+   * @returns {BizTask|null}
+   */
+  function restartTask(tasks, steps, plans, day, skipped = []) {
+    return todayPlanned(tasks, steps, plans, 15, day, skipped)[0]?.task ?? null;
   }
 
   return { byId, ordered, finished, depsDone, available, today, blockDaysOf, budgetOn, stepProgress, stepComplete, atRisk, statusBlock, helpPrompt,

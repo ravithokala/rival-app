@@ -119,10 +119,9 @@ export function businessToday(day) {
   if (!data.tasks.length) return '';
   const budget = Business.budgetOn(data, day);
   if (!budget) return '';
-  const weekStart = Dates.weekStart(day);
   // After two or more business days missed in a row: one small restart task instead of the list (4b).
   if (Business.missedInARow(data, data.tasks, day) >= 2) {
-    const restart = Business.restartTask(data.tasks, data.steps, weekStart);
+    const restart = Business.restartTask(data.tasks, data.steps, data.plans, day, skippedOn(day));
     return el('section', { class: 'card business-today' },
       el('div', { class: 'habit-head' }, el('h2', {}, 'Business today'), el('span', { class: 'muted small' }, '15 min')),
       el('p', { class: 'muted small' }, 'A couple of days off the business. One small step gets it moving again.'),
